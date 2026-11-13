@@ -10,12 +10,13 @@ Implementa los principios VI y VIII de la constitution.
 ## Endpoints seguros para reintentar (idempotencia)
 
 - `GET`, `PUT`, `DELETE`: idempotentes por diseño; repetirlos no cambia el resultado.
-- `POST` que crea o cobra algo: aceptar header `Idempotency-Key`. Guardar la clave con el resultado (tabla con índice único); si llega repetida, devolver la respuesta original sin reejecutar.
+- `POST` cuya repetición causa daño (mover dinero, crear una orden, enviar una notificación): `Idempotency-Key` **obligatoria**. La regla y la implementación viven en un solo lugar: principio IX y skill `payments-saga-outbox`.
+- `POST` sin efecto dañino al repetirse: no necesita clave.
 - Documentar el header en Swagger con `@ApiHeader({ name: 'Idempotency-Key', required: true })`.
 
 ## Llamadas a servicios externos
 
-Toda llamada saliente lleva las tres cosas:
+Aplica solo si la feature llama a un servicio externo. Toda llamada saliente lleva las tres cosas:
 
 1. **Timeout explícito** (nunca el default infinito).
 2. **Reintentos acotados**: máx. 3, backoff exponencial con jitter, solo ante fallos transitorios (timeout, 502/503/504, errores de red) y solo si la llamada es idempotente. Nunca reintentar 4xx.

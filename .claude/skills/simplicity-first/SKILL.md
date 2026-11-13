@@ -11,7 +11,7 @@ Implementa el principio V. **Empezar siempre por lo más simple que cumple el sp
 
 1. ¿Hay una interfaz, clase base, factory o genérico con **una sola** implementación y sin segundo uso real? (Regla de tres: abstraer en la tercera repetición.)
 2. ¿Hay una librería, capa, servicio, tabla o endpoint que **ningún requisito actual** usa?
-3. ¿Alguien nuevo puede seguir un request de controller a base de datos en **menos de 5 minutos**?
+3. ¿Un request atraviesa **más de 3 capas** de código propio entre el controller y la base de datos (controller → service → repository)?
 4. ¿Se puede cumplir el requisito **borrando código** o usando algo ya incluido en NestJS, TypeORM o PostgreSQL?
 5. ¿Hay cache, cola, outbox, saga, CQRS, réplica o servicio extra **sin una carga o consistencia declarada** que lo exija?
 6. ¿Hay un patrón de diseño aplicado sin un problema concreto que resuelva?

@@ -5,7 +5,10 @@ description: Idempotencia en pagos y transacciones, sagas con compensaciones y T
 
 # Idempotencia, Saga y Outbox
 
-Implementa los principios IX y X de la constitution.
+Implementa los principios IX y X de la constitution. Ambos son **condicionales**:
+
+- Idempotencia con clave: solo para operaciones cuya repetición causa daño (mover dinero, crear una orden, enviar una notificación).
+- Saga y outbox: solo si la operación cruza más de un servicio, sistema externo o broker. Con una sola base de datos se usa una transacción local y nada más.
 
 ## Idempotencia en pagos/transacciones
 

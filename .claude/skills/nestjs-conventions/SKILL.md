@@ -35,4 +35,5 @@ test/<dominio>.e2e-spec.ts    # e2e
 - Versionar la API (`/v1`); un cambio breaking requiere nueva versión.
 - Config solo por `@nestjs/config`; actualizar `.env.example` al agregar variables.
 - TypeScript `strict`; prohibido `any` sin comentario que lo justifique.
-- Logging con `Logger` de Nest; nunca loguear secretos ni datos personales.
+- Logging estructurado con el logger elegido en el plan (ver skill `observability`), el mismo en todo el código; nunca loguear secretos ni datos personales.
+- Sin dependencias circulares entre módulos ni `forwardRef` (ver skill `code-smells`).

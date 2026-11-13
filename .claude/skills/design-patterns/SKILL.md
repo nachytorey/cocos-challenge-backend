@@ -5,7 +5,11 @@ description: Catálogo de patrones de diseño aplicados a NestJS/TypeScript y c�
 
 # Design patterns en NestJS
 
-Implementa el principio XIII: toda feature con lógica de negocio usa **al menos un patrón nombrado y justificado**. El patrón resuelve un problema concreto; si no hay problema, no se aplica (principio V).
+Implementa el principio XIII: todo plan toma una **decisión explícita de patrón** por feature.
+
+- Si la feature tiene comportamiento que varía por tipo, una integración externa, transiciones de estado, reglas combinables o comportamiento transversal → usa un patrón nombrado y justificado.
+- Si no tiene nada de eso → el plan escribe "no hace falta un patrón adicional" con el motivo. No se agrega un patrón sin problema concreto (principio V).
+- Repository, inyección de dependencias y módulos **no cuentan**: ya son obligatorios por el framework y la constitution.
 
 ## Cómo elegir
 

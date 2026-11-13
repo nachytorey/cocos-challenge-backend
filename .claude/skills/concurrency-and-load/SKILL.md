@@ -5,7 +5,11 @@ description: Diseño para miles de requests por segundo, estrategias de locking 
 
 # Concurrencia, locking y carga
 
-Implementa el principio XI de la constitution. Pensar siempre: **miles de RPS y muchos escribiendo lo mismo a la vez**.
+Implementa el principio XI: **preparado para escalar, no construido para escalar**. El diseño nunca debe impedir llegar a miles de RPS (stateless, paginación, transacciones cortas, locking correcto), pero cache, colas y réplicas se agregan solo con un disparador medido o declarado (ver `simplicity-first`).
+
+- Tests de concurrencia: obligatorios si la feature toca estado compartido mutable.
+- Tests de stress con k6: obligatorios si el spec declara un requisito de throughput o latencia.
+- Elegir siempre la estrategia de locking más simple que sea correcta (empezar por UPDATE atómico).
 
 ## En cada plan (obligatorio)
 

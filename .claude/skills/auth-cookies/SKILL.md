@@ -41,8 +41,9 @@ Así el middleware autentica y el guard autoriza; ninguna ruta nueva queda abier
 
 ## Leer el token
 
-- Usar `cookie-parser` y leer desde `req.cookies.token` en el guard (JwtStrategy con extractor de cookie).
-- Rechazar con 401 si falta o es inválido. Nunca aceptar el token desde `Authorization` o body salvo que el plan lo justifique.
+- Usar `cookie-parser`; el token se lee de `req.cookies.token` **solo en el middleware global**. No hay un segundo mecanismo (ni JwtStrategy ni lectura en guards).
+- El `401` lo emite únicamente el guard global cuando falta `req.user` en una ruta no pública. Nunca aceptar el token desde `Authorization` o body salvo que el plan lo justifique.
+- Revocación con costo acotado por request: tokens de vida corta más una lista de revocados en cache compartido. El plan deja escrito el mecanismo elegido.
 
 ## Logout
 
