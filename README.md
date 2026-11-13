@@ -11,3 +11,8 @@ genero skilss pero varios
 3) /speckit-specify documento challenge
 
 4) speckit-plan (creo el plan, )
+
+5) /speckit-tasks
+
+
+/speckit-analyze
