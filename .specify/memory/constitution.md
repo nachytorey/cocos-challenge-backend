@@ -1,6 +1,8 @@
 <!--
 Sync Impact Report (temporary; remove before commit)
-- Version change: 1.3.0 → 1.5.0 (1.4.0: added IX Idempotent Payments, X Saga & Outbox,
+- Version change: 1.3.0 → 1.8.0 (1.8.0: V rewritten with testable simplicity checks and
+  growth triggers. 1.7.0: added XIII Design Patterns. 1.6.0: VII adds global token-validation middleware; added
+  XII Rate Limiting. 1.4.0: added IX Idempotent Payments, X Saga & Outbox,
   XI Scale & Concurrency, Architecture Recommendation gate; 1.5.0: III now requires
   validation on every endpoint plus a global deny-by-default guard)
 - Previous: 1.2.0 → 1.3.0
@@ -49,8 +51,26 @@ floating-point types; use `numeric`/decimal with explicit precision.
 Rationale: financial-style data requires exact arithmetic and reproducible schema history.
 
 ### V. Simplicity & Observability
-Start with the simplest design that satisfies the spec (YAGNI); every added abstraction or
-dependency MUST be justified by a current requirement. Errors MUST be handled through
+Always start with the simplest design that satisfies the spec, then grow from there (YAGNI).
+Complexity is added only when a requirement stated in the spec, or a measured problem,
+demands it, never in anticipation. Simplicity is checked with these tests, and a "yes" to
+any of them is a violation that MUST be removed or justified in the plan's
+complexity-tracking section:
+- Is there an abstraction (interface, base class, factory, generic) with a single
+  implementation and no concrete second use? Rule of three: abstract on the third
+  repetition, not the first.
+- Is there a dependency, library, layer, service or table that no current requirement uses?
+- Can a new reader trace a request from controller to database in under five minutes?
+- Could the same requirement be met by deleting code or using a built-in of NestJS,
+  TypeORM or PostgreSQL?
+- Is a scaling or consistency mechanism (cache, queue, outbox, saga, CQRS, read replica,
+  extra service) present without a stated load or consistency requirement that needs it?
+Growth triggers: a mechanism may be introduced only when the spec states the need or a
+measurement shows it (e.g. a load test missing its p95 target, an observed race, a
+requirement spanning services). The plan MUST record the trigger. Principles marked
+NON-NEGOTIABLE (security, test-first, payment idempotency) are baseline requirements, not
+optional complexity. When two designs satisfy the spec, the one with fewer moving parts
+MUST be chosen. Errors MUST be handled through
 NestJS exception filters and return consistent, documented error responses. Logging MUST use
 the NestJS `Logger`, and logs MUST NOT contain secrets or personal data.
 Rationale: a small, debuggable codebase is easier to review and to defend.
@@ -75,6 +95,11 @@ requests MUST be redirected or rejected, and responses MUST send HSTS (`helmet`)
 logs, or any storage readable by JavaScript (`localStorage`, `sessionStorage`). Logout MUST
 clear the cookie using the same attributes it was set with. Cookie lifetime MUST be bounded
 and configured from environment variables.
+A global authentication middleware MUST run on every request: it reads the token from the
+cookie, verifies signature, expiry and revocation, and attaches the authenticated identity
+to the request. An invalid, expired or missing token MUST yield `401`, except on routes
+explicitly marked public. The deny-by-default guard (Principle III) enforces the access
+decision on top of that identity.
 Rationale: `HttpOnly` makes the token unreachable from injected scripts, which removes the
 most common token-theft path (XSS).
 
@@ -124,6 +149,28 @@ target (p95/p99 latency, error rate, RPS) MUST be recorded in the plan or PR.
 Rationale: races and lock contention only appear under load, so they must be designed for
 and tested, not discovered in production.
 
+### XII. Rate Limiting & Abuse Protection
+Every API MUST have a global rate limit (`@nestjs/throttler`) applied by default, with
+stricter limits on sensitive routes (login, token refresh, payments, password or code
+verification). In any multi-instance deployment the limiter MUST use a shared store
+(e.g. Redis) so limits hold across instances. Exceeding a limit MUST return `429` with a
+`Retry-After` header, and the `429` response MUST be documented in Swagger. Limits MUST be
+configurable through environment variables, and an endpoint MUST NOT opt out of the limiter
+without a documented justification in the plan.
+Rationale: without a limit, a single client or bot can exhaust capacity and defeat the
+scale and resilience guarantees of the rest of the system.
+
+### XIII. Design Patterns, Named and Justified
+Every feature with business logic MUST be built around at least one explicitly named design
+pattern appropriate to its problem (e.g. Strategy, Factory, Repository, Adapter, Facade,
+Decorator, Observer/Event, State, Template Method, CQRS, Specification). The plan MUST name
+the pattern, the problem it solves and, when relevant, the simpler alternative rejected. The
+code MUST make the pattern recognizable (naming, structure) and tests MUST cover its
+extension points. A pattern MUST NOT be applied without a concrete problem to solve:
+Principle V (simplicity) prevails over decorative patterns.
+Rationale: named patterns give the team a shared vocabulary and predictable extension
+points, while the justification rule prevents over-engineering.
+
 ## Technology Stack & Constraints
 
 - Runtime and language: Node.js with TypeScript (strict).
@@ -148,6 +195,7 @@ and tested, not discovered in production.
 - Every plan MUST include an Architecture Recommendation: the proposed architecture, at
   least one alternative considered, the trade-offs, and why this one fits the expected load
   and consistency needs.
+- Every plan MUST name the design pattern(s) used and justify them (Principle XIII).
 - The plan MUST include a Constitution Check; any violation MUST be recorded in its
   complexity-tracking section with a justification.
 - The README MUST document how to install, configure, migrate, run and test the project.
@@ -160,4 +208,4 @@ principle removals or redefinitions require a MAJOR version bump, new or materia
 expanded principles a MINOR bump, and clarifications a PATCH bump. Every plan and review
 MUST verify compliance with these principles, and unjustified complexity MUST be rejected.
 
-**Version**: 1.5.0 | **Ratified**: 2026-11-13 | **Last Amended**: 2026-11-13
+**Version**: 1.8.0 | **Ratified**: 2026-11-13 | **Last Amended**: 2026-11-13

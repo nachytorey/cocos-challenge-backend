@@ -28,6 +28,17 @@ res.cookie('token', jwt, {
 - Activar HSTS con `helmet`: `app.use(helmet())` (incluye `Strict-Transport-Security`).
 - `SameSite=Strict` es el default; `lax`/`none` solo con justificación escrita en el plan.
 
+## Middleware global de validación de token
+
+Corre en TODOS los requests (registrar en `AppModule.configure` con `consumer.apply(AuthMiddleware).forRoutes('*')`):
+
+1. Lee `req.cookies.token`.
+2. Verifica firma, expiración y revocación (lista de revocados / `jti`).
+3. Si es válido: adjunta la identidad (`req.user`). Si falta o es inválido: no adjunta nada.
+4. El **guard global deny-by-default** (`APP_GUARD`) decide: sin `req.user` y ruta no marcada `@Public()` → `401`.
+
+Así el middleware autentica y el guard autoriza; ninguna ruta nueva queda abierta por olvido.
+
 ## Leer el token
 
 - Usar `cookie-parser` y leer desde `req.cookies.token` en el guard (JwtStrategy con extractor de cookie).
