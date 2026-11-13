@@ -5,7 +5,7 @@ description: Formato único de errores de la API (Problem Details RFC 9457), cat
 
 # Error contract
 
-La API devuelve **siempre el mismo formato de error**, para que el frontend lo interprete sin adivinar. Complementa los principios V, VI y XII.
+La API devuelve **siempre el mismo formato de error**, para que el frontend lo interprete sin adivinar. Implementa el principio XIV y complementa VI y XII.
 
 ## Formato (Problem Details)
 
