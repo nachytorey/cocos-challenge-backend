@@ -24,6 +24,9 @@ constitution → `/speckit-specify` → `/speckit-clarify` → `/speckit-plan` �
 - `observability`: logs estructurados, correlation id, health checks y métricas.
 - `docker-ci`: Dockerfile, compose con Postgres/Redis y pipeline de CI.
 - `db-seeding-fixtures`: seeds, factories y datos de volumen para tests de carga.
+- `api-conventions`: recursos, status codes, paginación, orden, filtros, fechas y montos.
+- `app-security`: CSRF, argon2, modelo de autorización, límites y auditoría de dependencias.
+- `runtime-robustness`: graceful shutdown, timeouts, validación de config al arrancar.
 - `code-smells`: catálogo de smells, corrección y regla automática que los atrapa.
 - `simplicity-first`: checklist para detectar sobreingeniería y disparadores para crecer.
 - `design-patterns`: elegir, nombrar y justificar un patrón de diseño por feature.

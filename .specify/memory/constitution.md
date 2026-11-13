@@ -42,7 +42,17 @@ trust their input.
 Schema changes MUST be made through versioned TypeORM migrations; `synchronize: true` MUST
 NOT be used outside throwaway local experiments. Operations that modify several rows or
 tables MUST run inside a transaction. Monetary and quantity values MUST NOT use
-floating-point types; use `numeric`/decimal with explicit precision.
+floating-point types; use `numeric`/decimal with explicit precision, and a decimal library
+in application code. Timestamps MUST be stored as `timestamptz` in UTC.
+Migrations MUST be safe to run while the previous version of the application is still
+serving traffic (expand, migrate, then contract; no destructive change in the same release
+that stops using a column), and every migration MUST have a working `down`. When the
+project starts from a pre-existing schema, that schema MUST be captured as a baseline
+migration instead of being rewritten.
+The database connection MUST set `statement_timeout`, `lock_timeout` and
+`idle_in_transaction_session_timeout`, configured from environment variables.
+Records with audit or legal value (money movements, orders, permission changes) MUST be
+append-only: they are corrected by a new compensating record, never by `UPDATE` or `DELETE`.
 Rationale: exact arithmetic and a reproducible schema history prevent silent data corruption.
 
 ### V. Simplicity First, Then Grow (BASELINE)
@@ -78,6 +88,11 @@ documentation MUST NOT be merged. The generated document MUST stay in sync with 
 Breaking changes (removed/renamed fields, changed types or status codes) MUST be versioned
 (e.g. `/v1`) and MUST NOT ship silently. CORS MUST be restricted to configured origins taken
 from environment variables.
+The API MUST follow one set of conventions across all endpoints: plural resource nouns and
+standard status codes; `camelCase` JSON fields; dates as ISO 8601 in UTC; monetary amounts
+as decimal strings with an explicit ISO 4217 currency, never JSON numbers; and every list
+endpoint paginated with a bounded `limit`, using one pagination, sorting and filtering
+scheme for the whole API, with sortable and filterable fields whitelisted.
 Rationale: the frontend can only move independently if the contract is explicit, versioned
 and machine-readable.
 
@@ -196,6 +211,31 @@ branches). A limit may be raised for a specific function only with an inline jus
 Rationale: rules that are not enforced automatically decay; tooling keeps the baseline
 without relying on memory.
 
+### XVI. Application Security (BASELINE)
+State-changing operations MUST NOT be exposed through `GET`. State-changing requests MUST
+be rejected when their `Origin` header is not an allowed origin, and when `SameSite` is
+relaxed to `Lax` or `None` an anti-CSRF token MUST also be required. Passwords and other
+user secrets MUST be stored only as salted hashes produced by a memory-hard algorithm
+(`argon2id`), never encrypted or logged, and login MUST NOT reveal whether the account
+exists. Authorization MUST follow one explicit model (roles or permissions) declared in the
+plan, with least privilege as the default. Request bodies MUST have a size limit, and
+security headers MUST be set with `helmet`. Dependencies MUST be installed from a committed
+lockfile, and the CI MUST fail on known high or critical vulnerabilities. Personal data
+MUST be limited to what the spec requires and MUST NOT appear in logs or error responses.
+Rationale: these controls are cheap at the start and close the most common attack paths
+(CSRF, credential theft, privilege escalation, vulnerable dependencies).
+
+### XVII. Runtime Robustness (BASELINE)
+The service MUST shut down gracefully: on a termination signal it stops accepting new
+requests, lets in-flight requests finish within a bounded time, and closes database and
+other connections. Every incoming request MUST have a server-side timeout, and no request
+may wait indefinitely on a database query, a lock or an outbound call. Configuration MUST be
+validated at startup and the process MUST fail fast, with a clear message, when a required
+variable is missing or invalid. Unhandled rejections and uncaught exceptions MUST be logged
+and MUST terminate the process so the orchestrator restarts it in a clean state.
+Rationale: deploys and failures are routine; a service that stops, times out and restarts
+predictably does not lose or corrupt work when they happen.
+
 ## Technology Stack & Constraints
 
 Baseline (always present):
@@ -205,6 +245,8 @@ Baseline (always present):
 - Validation: `class-validator` and `class-transformer`.
 - API docs: `@nestjs/swagger` (OpenAPI), exposed in non-production environments.
 - Security and abuse protection: `helmet`, `@nestjs/throttler`, `cookie-parser`.
+- Decimal arithmetic: `decimal.js` for monetary and quantity values.
+- Password hashing: `argon2` (when the API stores credentials).
 - Testing: Jest for unit tests; Jest with Supertest for e2e tests.
 - Quality tooling: ESLint with `typescript-eslint`, Prettier, a circular-dependency check.
 - Frontend consumer: Next.js + React + TypeScript in a separate repository.
@@ -234,6 +276,10 @@ introduces it.
   expected load or the assumption used; and the pattern decision (Principle XIII).
 - The plan MUST include a Constitution Check; any violation MUST be recorded in its
   complexity-tracking section with a justification.
+- Definition of Done: a task is done only when its tests were written first and pass, all
+  gates are green, every endpoint it touches is documented in Swagger, new environment
+  variables are in `.env.example`, migrations have a working `down`, and no secret or
+  personal data was added to logs.
 - The README MUST document how to install, configure, migrate, run and test the project.
 
 ## Governance
@@ -244,4 +290,4 @@ principle removals or redefinitions require a MAJOR version bump, new or materia
 expanded principles a MINOR bump, and clarifications a PATCH bump. Every plan and review
 MUST verify compliance with these principles, and unjustified complexity MUST be rejected.
 
-**Version**: 2.0.0 | **Ratified**: 2026-11-13 | **Last Amended**: 2026-11-13
+**Version**: 2.1.0 | **Ratified**: 2026-11-13 | **Last Amended**: 2026-11-13
