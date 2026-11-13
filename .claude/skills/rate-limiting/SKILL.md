@@ -1,6 +1,6 @@
 ---
 name: rate-limiting
-description: Rate limiting global y por ruta con @nestjs/throttler y Redis, respuestas 429 y su documentación en Swagger. Usar al crear endpoints sensibles (login, refresh, pagos, verificaciones) o al configurar la protección contra abuso.
+description: Rate limiting global y por ruta con express-rate-limit (y Redis si hay varias instancias), respuestas 429 y su documentación en OpenAPI. Usar al crear rutas sensibles (login, refresh, órdenes, verificaciones) o al configurar la protección contra abuso.
 ---
 
 # Rate limiting
@@ -10,40 +10,44 @@ Implementa el principio XII de la constitution.
 ## Global por defecto
 
 ```ts
-ThrottlerModule.forRootAsync({
-  inject: [ConfigService],
-  useFactory: (cfg: ConfigService) => ({
-    throttlers: [{ ttl: cfg.get('RATE_LIMIT_TTL_MS'), limit: cfg.get('RATE_LIMIT_MAX') }],
-    storage: new ThrottlerStorageRedisService(cfg.get('REDIS_URL')), // compartido entre instancias
-  }),
-}),
-// y registrar ThrottlerGuard como APP_GUARD
+import { rateLimit } from 'express-rate-limit';
+
+export const globalLimiter = rateLimit({
+  windowMs: config.rateLimit.windowMs,
+  limit: config.rateLimit.max,
+  standardHeaders: 'draft-8', // RateLimit + Retry-After
+  legacyHeaders: false,
+  handler: (_req, _res, next) => next(new RateLimitedError()), // pasa por el error handler
+});
+
+app.use(globalLimiter);
 ```
 
-- Con varias instancias el store DEBE ser compartido (Redis); en memoria cada instancia contaría por separado.
+- Una sola instancia: el store en memoria alcanza.
+- Varias instancias: store compartido (`rate-limit-redis`); en memoria cada instancia contaría por separado.
 - Detrás de un proxy: `app.set('trust proxy', 1)` para limitar por IP real.
-- Mejor limitar por usuario autenticado cuando exista, y por IP en rutas públicas.
+- Si hay autenticación, limitar por usuario (`keyGenerator`); si no, por IP.
 
 ## Límites más estrictos en rutas sensibles
 
 ```ts
-@Throttle({ default: { limit: 5, ttl: 60_000 } }) // p. ej. login
+const ordersLimiter = rateLimit({ windowMs: 60_000, limit: 30 });
+router.post('/orders', ordersLimiter, validate(...), controller.create);
 ```
 
-Aplicar a: login, refresh de token, pagos/transferencias, verificación de códigos, recuperación de contraseña.
+Aplicar a: login, refresh de token, operaciones no repetibles (órdenes, pagos), verificación de códigos.
 
 ## Respuesta
 
-- `429 Too Many Requests` con header `Retry-After`.
-- Documentar en Swagger: `@ApiResponse({ status: 429, description: 'Rate limit exceeded' })`.
-- Salir del límite con `@SkipThrottle()` solo con justificación escrita en el plan.
+- `429 Too Many Requests` con `Retry-After`, en formato Problem Details (`code: RATE_LIMITED`).
+- Documentar el 429 en OpenAPI en cada ruta.
+- Excluir una ruta del limiter (p. ej. health checks) solo con justificación en el plan.
 
 ## Variables de entorno (agregar a `.env.example`)
 
-`RATE_LIMIT_TTL_MS`, `RATE_LIMIT_MAX`, `REDIS_URL`.
+`RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX` (y `REDIS_URL` si se usa Redis).
 
 ## Tests
 
-- e2e: superar el límite devuelve `429` con `Retry-After`; pasada la ventana vuelve a responder.
-- e2e: la ruta de login tiene un límite más estricto que el global.
-- Con carga (k6): el limiter no degrada la latencia p95 del camino normal.
+- Funcional: superar el límite devuelve `429` con `Retry-After`.
+- Funcional: la ruta sensible tiene un límite más estricto que el global.

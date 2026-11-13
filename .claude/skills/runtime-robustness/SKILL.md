@@ -1,6 +1,6 @@
 ---
 name: runtime-robustness
-description: Graceful shutdown, timeouts de request, validación de configuración al arrancar y manejo de errores no capturados en NestJS. Usar al escribir main.ts, configurar el arranque, el módulo de config, o al preparar el servicio para deploys y reinicios.
+description: Graceful shutdown, timeouts de request, validación de configuración al arrancar y manejo de errores no capturados en Express. Usar al escribir server.ts, config.ts, el arranque, o al preparar el servicio para deploys y reinicios.
 ---
 
 # Runtime robustness
@@ -9,35 +9,51 @@ Implementa el principio XVII: el servicio arranca, se detiene y falla de forma p
 
 ## Arranque: validar configuración (fail fast)
 
-- Esquema de validación para las variables de entorno en `ConfigModule.forRoot({ validate })` (con `class-validator`, o Joi/zod si el plan lo justifica).
-- Variable requerida ausente o inválida → el proceso no arranca y muestra cuál falta.
-- Acceso a config siempre tipado vía `ConfigService`, nunca `process.env` suelto en el código.
+```ts
+// config.ts — única lectura de process.env
+const Env = z.object({
+  DATABASE_URL: z.string().url(),
+  PORT: z.coerce.number().int().default(3000),
+  REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+});
+const parsed = Env.safeParse(process.env);
+if (!parsed.success) { console.error(z.prettifyError(parsed.error)); process.exit(1); }
+export const config = parsed.data;
+```
+
+(Única excepción a "sin `console`": antes de que exista el logger.)
 
 ## Graceful shutdown
 
 ```ts
-app.enableShutdownHooks(); // SIGTERM / SIGINT
+const server = app.listen(config.port);
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => {
+    markNotReady();                      // /health/ready responde 503
+    server.close(async () => {           // deja terminar los requests en curso
+      await dataSource.destroy();
+      process.exit(0);
+    });
+    setTimeout(() => process.exit(1), config.shutdownTimeoutMs).unref();
+  });
+}
 ```
 
-- Al recibir la señal: dejar de aceptar requests nuevos, terminar los que están en curso dentro de un tiempo máximo (`SHUTDOWN_TIMEOUT_MS`), cerrar conexiones (DB, Redis, broker) en `onApplicationShutdown`.
-- El health check de readiness pasa a "no listo" al iniciar el apagado, para que el balanceador deje de enviar tráfico.
-- Workers y relays (outbox) terminan el lote actual y no toman otro.
+- Workers o relays terminan el lote actual y no toman otro.
 
 ## Timeouts
 
-- Timeout de request en el servidor (interceptor global con `timeout()` de RxJS o `server.requestTimeout`); al vencer → `503`/`504` con el formato de `error-contract`.
-- Base de datos: `statement_timeout`, `lock_timeout` e `idle_in_transaction_session_timeout` (ver `typeorm-postgres`).
+- Servidor: `server.requestTimeout` y `server.headersTimeout`; además un middleware que corta el request al vencer `REQUEST_TIMEOUT_MS` con `503` en formato `error-contract`.
+- Base de datos: `statement_timeout`, `lock_timeout`, `idle_in_transaction_session_timeout` (ver `typeorm-postgres`).
 - Llamadas salientes: timeout explícito siempre (ver `api-resilience`).
-- Regla: el timeout interno es menor que el externo (query < request < balanceador), para que el error se origine en el punto más cercano a la causa.
+- Regla: el timeout interno es menor que el externo (query < request < balanceador).
 
 ## Errores no capturados
 
 ```ts
-process.on('unhandledRejection', (e) => { logger.error(e); process.exit(1); });
-process.on('uncaughtException', (e) => { logger.error(e); process.exit(1); });
+process.on('unhandledRejection', (e) => { logger.fatal(e); process.exit(1); });
+process.on('uncaughtException', (e) => { logger.fatal(e); process.exit(1); });
 ```
-
-Se loguea y el proceso termina; el orquestador lo reinicia limpio. No seguir sirviendo en estado desconocido.
 
 ## Variables de entorno (agregar a `.env.example`)
 
@@ -46,5 +62,4 @@ Se loguea y el proceso termina; el orquestador lo reinicia limpio. No seguir sir
 ## Tests
 
 - Unit: la validación de config rechaza una variable faltante y una con formato inválido.
-- e2e: un request que supera el timeout devuelve el error del contrato y no queda colgado.
-- e2e: tras la señal de apagado, un request en curso termina bien y `/health/ready` responde no listo.
+- Funcional: un request que supera el timeout devuelve el error del contrato.

@@ -44,7 +44,7 @@ Reglas:
 - Índices para filtros y orden frecuentes; revisar con `EXPLAIN ANALYZE`.
 - Cache (Redis) en lecturas calientes con invalidación definida.
 - Trabajo pesado o lento a colas/workers; el request responde rápido.
-- Rate limiting (`@nestjs/throttler`) para proteger la API.
+- Rate limiting (`express-rate-limit`) para proteger la API.
 
 ## Tests de stress y concurrencia
 

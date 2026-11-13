@@ -1,6 +1,6 @@
 ---
 name: error-contract
-description: Formato único de errores de la API (Problem Details RFC 9457), catálogo de códigos y exception filter global. Usar al lanzar excepciones, definir respuestas de error, documentar errores en Swagger o cuando el frontend necesite interpretar un error.
+description: Formato único de errores de la API (Problem Details RFC 9457), catálogo de códigos y middleware de errores global de Express. Usar al lanzar excepciones, definir respuestas de error, documentar errores en Swagger o cuando el frontend necesite interpretar un error.
 ---
 
 # Error contract
@@ -44,10 +44,11 @@ La API devuelve **siempre el mismo formato de error**, para que el frontend lo i
 
 ## Implementación
 
-- Un `ExceptionFilter` global (`@Catch()`) convierte toda excepción a este formato.
+- Un middleware de errores de Express (`(err, req, res, next)`), registrado al final, convierte toda excepción a este formato. Express 5 le hace llegar los errores de handlers `async`.
+- Errores de validación de zod → `400 VALIDATION_FAILED`, con un item de `errors[]` por cada issue (`path` → `field`).
 - Errores de dominio: clases propias (`InsufficientFundsError`) mapeadas a status + `code` en el filter; los services no conocen HTTP.
 - Errores de TypeORM (`23505` unique, `40001/40P01` serialization/deadlock) se traducen a `CONFLICT` o se reintentan; nunca se filtran crudos.
-- Documentar en Swagger los errores de cada endpoint con un `ErrorResponseDto` compartido (`@ApiResponse({ status: 409, type: ErrorResponseDto })`).
+- Documentar en OpenAPI los errores de cada endpoint con un schema zod compartido (`ProblemDetails`) registrado en el registry, una respuesta por cada status posible.
 
 ## Tests
 

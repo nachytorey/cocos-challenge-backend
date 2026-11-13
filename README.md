@@ -8,4 +8,4 @@ genero skilss pero varios
 
 2) constitution lo lleno!
 
-3) /speckit-specify
+3) /speckit-specify documento challenge

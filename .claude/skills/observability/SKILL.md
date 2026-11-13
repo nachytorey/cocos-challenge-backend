@@ -9,7 +9,7 @@ Sin esto no se pueden diagnosticar los tests de carga, los breakers ni los reint
 
 ## Logs estructurados
 
-- Logs en JSON (p. ej. `nestjs-pino`), un evento por línea, con nivel, timestamp, mensaje y contexto.
+- Logs en JSON con `pino` y `pino-http`, un evento por línea, con nivel, timestamp, mensaje y contexto.
 - **Correlation id** por request: leer `X-Request-Id` o generarlo, guardarlo en `AsyncLocalStorage`, incluirlo en cada log y devolverlo como `traceId` en errores (ver `error-contract`).
 - Nunca loguear tokens, cookies, contraseñas, datos de tarjeta ni datos personales; configurar `redact` para esos campos.
 - Niveles: `error` (requiere acción), `warn` (degradación: breaker abierto, reintento), `info` (eventos de negocio), `debug` (solo en desarrollo).
@@ -17,7 +17,7 @@ Sin esto no se pueden diagnosticar los tests de carga, los breakers ni los reint
 
 ## Health checks
 
-Con `@nestjs/terminus`:
+Dos rutas simples, sin librería extra:
 
 - `GET /health/live`: el proceso responde (liveness).
 - `GET /health/ready`: Postgres (y Redis si se usa) responden (readiness).

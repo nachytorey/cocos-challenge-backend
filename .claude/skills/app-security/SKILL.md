@@ -1,6 +1,6 @@
 ---
 name: app-security
-description: Seguridad de aplicación en NestJS (CSRF, hash de contraseñas con argon2, modelo de autorización, límites de body, headers, auditoría de dependencias, datos personales). Usar al implementar login/registro, endpoints que cambian estado, roles y permisos, o al configurar el arranque y el CI.
+description: Seguridad de aplicación en Express (CSRF, hash de contraseñas con argon2, modelo de autorización, límites de body, headers, auditoría de dependencias, datos personales). Usar al implementar login/registro, endpoints que cambian estado, roles y permisos, o al configurar el arranque y el CI.
 ---
 
 # Application security
@@ -22,14 +22,14 @@ Implementa el principio XVI. Complementa `auth-cookies` (token) y `rate-limiting
 
 ## Autorización
 
-- Un solo modelo declarado en el plan: roles (`@Roles('admin')` + `RolesGuard`) o permisos. No mezclar.
+- Un solo modelo declarado en el plan: roles (middleware `requireRole('admin')`) o permisos. No mezclar.
 - Mínimo privilegio por defecto: lo no permitido explícitamente está denegado.
 - Autorización a nivel de recurso (dueño del dato) antes del handler; un recurso ajeno responde `404` o `403` de forma consistente.
 - Nunca confiar en ids, roles o `userId` que vengan del body: la identidad sale de `req.user`.
 
 ## Límites y headers
 
-- Tamaño máximo de body (`app.useBodyParser('json', { limit: '100kb' })` o el valor que defina el plan); subidas de archivos con límite propio y validación de tipo.
+- Tamaño máximo de body (`express.json({ limit: '100kb' })` o el valor que defina el plan); subidas de archivos con límite propio y validación de tipo.
 - `helmet()` activo; desactivar `X-Powered-By`.
 - Swagger no expuesto en producción (o protegido).
 

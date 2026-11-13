@@ -12,7 +12,7 @@ Implementa los principios VI y VIII de la constitution.
 - `GET`, `PUT`, `DELETE`: idempotentes por diseño; repetirlos no cambia el resultado.
 - `POST` cuya repetición causa daño (mover dinero, crear una orden, enviar una notificación): `Idempotency-Key` **obligatoria**. La regla y la implementación viven en un solo lugar: principio IX y skill `payments-saga-outbox`.
 - `POST` sin efecto dañino al repetirse: no necesita clave.
-- Documentar el header en Swagger con `@ApiHeader({ name: 'Idempotency-Key', required: true })`.
+- Documentar el header en OpenAPI como parámetro requerido de la ruta (schema zod de headers registrado en el registry).
 
 ## Llamadas a servicios externos
 
@@ -31,16 +31,16 @@ return policy.execute(() => this.http.get(url));
 ```
 
 - Breaker abierto → responder `503 Service Unavailable` con header `Retry-After`; registrar con `Logger` cada cambio de estado (open / half-open / closed).
-- Los parámetros (timeout, intentos, umbral, cooldown) vienen de `@nestjs/config`, no hardcodeados.
+- Los parámetros (timeout, intentos, umbral, cooldown) vienen de `config.ts`, no hardcodeados.
 
 ## Swagger obligatorio en TODO endpoint
 
 Un endpoint sin documentar no se mergea. Cada uno lleva:
 
-- `@ApiTags`, `@ApiOperation({ summary })`.
-- DTOs de request y response con `@ApiProperty` en cada campo.
-- `@ApiResponse` para cada código posible: 2xx, 400, 401/403 si aplica, 404, 409, 503.
-- Autenticación (`@ApiCookieAuth()` para el token en cookie) en rutas protegidas.
+- `registry.registerPath` con `tags`, `summary` y `description`.
+- Schemas zod de request y response (los mismos de la validación), con `.openapi({ description, example })` en cada campo.
+- Una respuesta por cada código posible: 2xx, 400, 401/403 si aplica, 404, 409, 422, 429, 503.
+- Esquema de seguridad (cookie) en rutas protegidas, si la API autentica.
 - Ejemplos (`example`) en los campos no obvios.
 
 ## Tests

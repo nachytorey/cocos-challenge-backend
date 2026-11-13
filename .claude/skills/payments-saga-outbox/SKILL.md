@@ -1,6 +1,6 @@
 ---
 name: payments-saga-outbox
-description: Idempotencia en pagos y transacciones, sagas con compensaciones y Transactional Outbox con NestJS + TypeORM + PostgreSQL. Usar al implementar pagos, transferencias, órdenes, reembolsos, publicación de eventos o flujos que cruzan servicios.
+description: Idempotencia en pagos y transacciones, sagas con compensaciones y Transactional Outbox con Express + TypeORM + PostgreSQL. Usar al implementar pagos, transferencias, órdenes, reembolsos, publicación de eventos o flujos que cruzan servicios.
 ---
 
 # Idempotencia, Saga y Outbox

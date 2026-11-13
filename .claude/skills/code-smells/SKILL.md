@@ -1,6 +1,6 @@
 ---
 name: code-smells
-description: Catálogo de code smells de NestJS/TypeScript con cómo detectarlos, corregirlos y qué regla automática los atrapa (ESLint, ciclos, cobertura). Usar al escribir, revisar o refactorizar código, al configurar lint/CI o antes de dar una tarea por terminada.
+description: Catálogo de code smells de Express/TypeScript con cómo detectarlos, corregirlos y qué regla automática los atrapa (ESLint, ciclos, cobertura). Usar al escribir, revisar o refactorizar código, al configurar lint/CI o antes de dar una tarea por terminada.
 ---
 
 # Code smells: detectar y corregir

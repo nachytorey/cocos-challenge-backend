@@ -1,6 +1,6 @@
 # cocos-challenge-backend
 
-Backend del challenge de Cocos. NestJS + TypeScript + PostgreSQL (TypeORM).
+Backend del challenge de Cocos. Express 5 + TypeScript + PostgreSQL (TypeORM), como pide el enunciado (`fullstack-challenge.md`). Datos iniciales en `database.sql`.
 El frontend (Next.js) vive en un repo aparte y consume esta API.
 
 ## Reglas
@@ -13,13 +13,13 @@ constitution → `/speckit-specify` → `/speckit-clarify` → `/speckit-plan` �
 
 ## Skills de proyecto
 
-- `nestjs-conventions`: arquitectura de módulos, DTOs, errores, Swagger.
+- `express-conventions`: estructura por feature, capas, composition root, zod y OpenAPI.
 - `typeorm-postgres`: entidades, migraciones, transacciones, numeric.
-- `nestjs-testing`: test-first con Jest y Supertest.
+- `testing-conventions`: test-first con Jest y Supertest (unit y funcionales HTTP).
 - `auth-cookies`: token de sesión en cookie HttpOnly, logout y CORS.
 - `api-resilience`: idempotencia, reintentos, circuit breaker y Swagger obligatorio.
 - `payments-saga-outbox`: idempotencia en pagos, sagas con compensaciones y outbox.
-- `rate-limiting`: throttler global con Redis, límites estrictos en rutas sensibles y 429.
+- `rate-limiting`: express-rate-limit global (Redis si hay varias instancias), límites estrictos en rutas sensibles y 429.
 - `error-contract`: formato único de errores (Problem Details) y catálogo de códigos.
 - `observability`: logs estructurados, correlation id, health checks y métricas.
 - `docker-ci`: Dockerfile, compose con Postgres/Redis y pipeline de CI.

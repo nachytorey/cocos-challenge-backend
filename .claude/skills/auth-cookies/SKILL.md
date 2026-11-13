@@ -35,7 +35,7 @@ Corre en TODOS los requests (registrar en `AppModule.configure` con `consumer.ap
 1. Lee `req.cookies.token`.
 2. Verifica firma, expiración y revocación (lista de revocados / `jti`).
 3. Si es válido: adjunta la identidad (`req.user`). Si falta o es inválido: no adjunta nada.
-4. El **guard global deny-by-default** (`APP_GUARD`) decide: sin `req.user` y ruta no marcada `@Public()` → `401`.
+4. El **middleware de autorización global deny-by-default** decide: sin `req.user` y ruta no incluida en la lista de rutas públicas → `401`.
 
 Así el middleware autentica y el guard autoriza; ninguna ruta nueva queda abierta por olvido.
 
