@@ -17,11 +17,14 @@ const Env = z.object({
   REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
 });
 const parsed = Env.safeParse(process.env);
-if (!parsed.success) { console.error(z.prettifyError(parsed.error)); process.exit(1); }
+if (!parsed.success) {
+  process.stderr.write(`Invalid configuration:\n${z.prettifyError(parsed.error)}\n`);
+  process.exit(1);
+}
 export const config = parsed.data;
 ```
 
-(Única excepción a "sin `console`": antes de que exista el logger.)
+Se escribe a `process.stderr` porque el logger todavía no existe y `console` está prohibido (principio XIV).
 
 ## Graceful shutdown
 

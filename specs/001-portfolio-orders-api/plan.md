@@ -24,13 +24,13 @@ heredado de `database.sql`, con validación y OpenAPI generados desde schemas de
 
 **Storage**: PostgreSQL 16 con el esquema de `database.sql` más la tabla `idempotency_keys`
 
-**Testing**: Jest 30 + `ts-jest` (unit), Jest + Supertest contra PostgreSQL de test (funcionales HTTP y concurrencia)
+**Testing**: Jest 30 + `ts-jest` (unit), Jest + Supertest contra PostgreSQL de test (funcionales HTTP y concurrencia), `k6` (smoke de latencia para SC-005)
 
 **Target Platform**: servidor Linux (contenedor) o local con Docker Compose para la base
 
 **Project Type**: web service (API REST, solo backend)
 
-**Performance Goals**: sin requisito en el enunciado. Supuesto (R12): uso de evaluación, pocas RPS; SC-005 pide p95 < 1 s en portfolio y búsqueda con los datos de prueba
+**Performance Goals**: sin requisito de throughput en el enunciado (supuesto R12: uso de evaluación, pocas RPS). Requisito de latencia declarado en SC-005: p95 < 1 s en portfolio y búsqueda con los datos de prueba, verificado con un smoke test de k6
 
 **Constraints**: cero saldos o tenencias negativas por concurrencia; mismo envío → una sola orden; importes exactos al centavo; esquema heredado sin cambios destructivos
 
@@ -53,7 +53,7 @@ heredado de `database.sql`, con validación y OpenAPI generados desde schemas de
 | XI | Preparado para escalar | ✅ | Stateless; lock por usuario (no global); transacción corta sin red; pool configurado; test de concurrencia; carga supuesta registrada (R12) |
 | XII | Rate limiting | ✅ | Global en memoria (una instancia) + límite estricto en `POST /v1/orders`; `429` con `Retry-After` |
 | XIII | Patrones | ✅ | Ver Pattern Decision |
-| XIV | Errores y observabilidad | ✅ | Middleware único → Problem Details con `code`; `pino` con correlation id; `/health/live` y `/health/ready` |
+| XIV | Errores y observabilidad | ✅ | Los errores de dominio llevan solo `code`; el middleware único los traduce a status y Problem Details; `pino` con correlation id; `/health/live` y `/health/ready` |
 | XV | Smells automáticos | ✅ | ESLint type-checked con los límites por defecto, `import/no-cycle`, cobertura ≥ 80% en CI |
 | XVI | Seguridad | ✅ | `helmet`, body ≤ 100 kb, ningún `GET` muta, check de `Origin` en `POST`, `email` nunca expuesto ni logueado, `npm audit --audit-level=high` en CI |
 | XVII | Robustez | ✅ | Config validada con zod al arrancar; graceful shutdown; timeout de request y de DB; salida ante errores no capturados |
@@ -62,11 +62,11 @@ heredado de `database.sql`, con validación y OpenAPI generados desde schemas de
 
 | # | Principio | ¿Disparador presente? | Decisión |
 |---|---|---|---|
-| III (acceso) / VII | Autenticación y tokens en cookie | No: el enunciado dice que no hace falta autenticación | No se implementa. El usuario viaja en la URL o el body. La cancelación igual verifica que la orden sea del `userId` enviado. HTTPS/HSTS (parte baseline de VII) vía `helmet` y el proxy |
+| III (acceso) / VII | Autenticación y tokens en cookie | No: el enunciado dice que no hace falta autenticación | No se implementa. El usuario viaja en la URL o el body. La cancelación igual verifica que la orden sea del `userId` enviado. La parte baseline de VII sí se implementa: middleware `require-https` que, en producción y con `trust proxy` configurado, rechaza con `403 HTTPS_REQUIRED` todo request que no llegue por TLS, más HSTS vía `helmet` |
 | VIII | Llamadas a servicios externos | No: no hay mercado externo | Sin retry ni circuit breaker. `GET` idempotentes por diseño |
 | IX | Operaciones no repetibles | **Sí**: enviar una orden mueve dinero | `Idempotency-Key` obligatoria, tabla `idempotency_keys` (R5) |
 | X | Saga y outbox | No: una sola base de datos | Transacción local |
-| XI (carga) | Requisito de throughput | No | Sin k6; solo tests de concurrencia |
+| XI (carga) | Requisito de throughput o latencia | **Sí, de latencia**: SC-005 (p95 < 1 s) | Smoke test de k6 sobre portfolio y búsqueda con umbral `p(95)<1000`, resultados en el README. Sin requisito de throughput: no hay prueba de estrés |
 
 **Resultado del gate**: PASS. Sin violaciones no justificadas.
 
@@ -136,13 +136,16 @@ src/
 │       ├── error-handler.ts       # → Problem Details
 │       ├── request-timeout.ts
 │       ├── origin-check.ts
+│       ├── require-https.ts       # rechaza HTTP sin TLS en producción
 │       └── openapi.ts             # registry + /docs
+├── types/express.d.ts             # req.validated, req.id
 ├── health/health.routes.ts
 ├── users/{user.entity.ts, users.repository.ts}
 ├── market-data/{market-data.entity.ts, market-data.repository.ts}
 ├── holdings/
 │   ├── compute-holdings.ts        # función pura (R3)
-│   └── compute-holdings.spec.ts
+│   ├── compute-holdings.spec.ts
+│   └── holdings.repository.ts     # órdenes FILLED y NEW del usuario
 ├── instruments/
 │   ├── instrument.entity.ts
 │   ├── instruments.{routes,controller,service,repository,schemas}.ts
@@ -159,13 +162,19 @@ src/
 
 test/
 ├── helpers/{test-app.ts, db.ts, factories.ts}
+├── infra.functional.spec.ts
+├── repositories.functional.spec.ts
+├── openapi.functional.spec.ts     # contrato vs contracts/openapi.yaml
+├── load/portfolio-search.k6.js    # smoke de latencia (SC-005)
 ├── orders.functional.spec.ts      # test funcional de envío de orden (enunciado)
+├── orders-idempotency.functional.spec.ts
 ├── orders-concurrency.functional.spec.ts
 ├── cancellation.functional.spec.ts
 ├── portfolio.functional.spec.ts
 └── instruments.functional.spec.ts
 
 docker-compose.yml                 # postgres (+ base de test), ejecuta database.sql
+docker/init-test-db.sql            # crea la base cocos_test
 requests.http                      # colección REST Client (nice to have del enunciado)
 .env.example
 ```

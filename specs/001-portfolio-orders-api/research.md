@@ -46,7 +46,7 @@ Reglas de cálculo (de FR-014 a FR-017a):
 
 ## R5. Idempotencia del envío de órdenes (principio IX)
 
-- **Decision**: header `Idempotency-Key` obligatorio en `POST /v1/orders`. Nueva tabla `idempotency_keys` con `UNIQUE (user_id, key)`, el hash SHA-256 del body canónico, el id de la orden y la respuesta. Se consulta e inserta **dentro de la misma transacción y bajo el mismo lock de usuario** que la orden.
+- **Decision**: header `Idempotency-Key` obligatorio en `POST /v1/orders`. Nueva tabla `idempotency_keys` con `UNIQUE (user_id, key)`, el hash SHA-256 del body canónico (el body ya validado por zod, serializado como JSON con las claves ordenadas alfabéticamente, para que el orden de las claves no cambie el hash), el id de la orden y la respuesta. Se consulta e inserta **dentro de la misma transacción y bajo el mismo lock de usuario** que la orden.
 - **Rationale**: como dos requests con la misma clave del mismo usuario quedan serializados por el lock (R4), el segundo siempre encuentra la clave ya completada y devuelve la respuesta original. No hace falta un estado `in_progress`; el `409` por "en curso" no puede ocurrir con este diseño, y la constitution lo cubre igual porque no existe un estado observable en curso. Misma clave con otro body → `422 IDEMPOTENCY_KEY_REUSED`.
 - **Alternatives considered**: guardar la clave en una columna de `orders` (modifica el esquema heredado y mezcla responsabilidades); clave en Redis (dependencia extra y sin atomicidad con la escritura de la orden).
 - Las requests inválidas (`400`, `404`, `422` de datos) no guardan la clave: no se registró nada.
@@ -89,7 +89,7 @@ Reglas de cálculo (de FR-014 a FR-017a):
 
 ## R12. Carga esperada
 
-- **Decision**: el spec no fija requisito de throughput. Supuesto: uso de evaluación (decenas de usuarios, pocas RPS). No se escriben tests de carga con k6; sí tests de concurrencia sobre el saldo (principio XI). El diseño sigue siendo stateless, con transacciones cortas y pool de conexiones configurado (`DB_POOL_MAX`, default 10).
+- **Decision**: el spec no fija requisito de throughput. Supuesto: uso de evaluación (decenas de usuarios, pocas RPS), así que no hay prueba de estrés. Sí hay un requisito de latencia (SC-005: p95 < 1 s en portfolio y búsqueda), que el principio XI obliga a verificar: smoke test de k6 con 10 usuarios virtuales durante 30 s y umbral `p(95)<1000`. Además, tests de concurrencia sobre el saldo. El diseño sigue siendo stateless, con transacciones cortas y pool de conexiones configurado (`DB_POOL_MAX`, default 10).
 
 ## R13. Herramientas de soporte
 
@@ -98,7 +98,9 @@ Reglas de cálculo (de FR-014 a FR-017a):
 | Logs | `pino` + `pino-http`, correlation id desde `X-Request-Id` o generado |
 | Seguridad HTTP | `helmet`, `cors` (orígenes de config), `express.json({ limit: '100kb' })` |
 | Rate limit | `express-rate-limit`, store en memoria (una sola instancia), más estricto en `POST /v1/orders` |
-| Tests | Jest 30 + `ts-jest`, Supertest, PostgreSQL de test por Docker Compose |
+| Tests | Jest 30 + `ts-jest`, Supertest, PostgreSQL de test por Docker Compose; `k6` para el smoke de latencia; `yaml` para leer el contrato en el test de OpenAPI |
+| Migraciones | CLI de TypeORM con `ts-node` (`typeorm-ts-node-commonjs`) |
+| HTTPS | Middleware `require-https` en producción (con `trust proxy`) + HSTS de `helmet` |
 | Calidad | ESLint 9 + `typescript-eslint` type-checked, `eslint-plugin-import` (`import/no-cycle`), Prettier |
 | Colección de requests | `requests.http` (REST Client), uno de los formatos que pide el enunciado |
 | Entorno local | `docker-compose.yml` con PostgreSQL que ejecuta `database.sql` al iniciar |

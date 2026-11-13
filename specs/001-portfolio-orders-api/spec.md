@@ -25,7 +25,7 @@ Un usuario quiere comprar o vender un activo. Indica el activo, si compra o vend
 3. **Given** un usuario con pesos insuficientes, **When** envía una orden de compra cuyo monto supera lo disponible, **Then** la orden se guarda en estado `REJECTED` y no cambia su saldo ni su tenencia.
 4. **Given** un usuario que tiene 5 acciones de un activo, **When** envía una orden de venta por 8 acciones, **Then** la orden se guarda `REJECTED`.
 5. **Given** un activo cuyo último precio es 1.000 pesos, **When** el usuario envía una orden MARKET de compra por un monto de 3.500 pesos, **Then** la orden se registra por 3 acciones (sin fracciones).
-6. **Given** un monto en pesos menor al precio de una acción, **When** el usuario envía la orden por monto, **Then** la orden se rechaza porque la cantidad resultante es cero.
+6. **Given** un monto en pesos menor al precio de una acción, **When** el usuario envía la orden por monto, **Then** el sistema responde que el pedido no se puede procesar porque la cantidad resultante es cero, y la orden no se registra.
 7. **Given** una orden LIMIT enviada sin precio, **When** el sistema la recibe, **Then** la rechaza por datos inválidos y no la guarda.
 
 ---
@@ -85,7 +85,7 @@ Un usuario quiere cancelar una orden LIMIT que todavía no se ejecutó.
 
 - Dos órdenes de compra del mismo usuario llegan al mismo tiempo y cada una por separado cabe en el saldo, pero juntas no: como máximo una se ejecuta; la otra queda `REJECTED`. Lo mismo para ventas sobre las mismas acciones.
 - Un mismo envío de orden se repite (reintento por corte de red): no debe crear dos órdenes.
-- Activo sin precio en el registro de precios: una orden MARKET sobre él se rechaza; en el portfolio la posición se muestra sin valor de mercado y se indica que falta el precio.
+- Activo sin precio en el registro de precios: una orden MARKET sobre él no se puede procesar y no se registra; en el portfolio la posición se muestra sin valor de mercado y se indica que falta el precio.
 - Cantidad cero, negativa o con decimales: dato inválido, la orden no se guarda.
 - Monto en pesos cero o negativo: dato inválido.
 - Orden sobre el instrumento de tipo moneda (pesos) con lado BUY o SELL: dato inválido.
@@ -108,7 +108,7 @@ Un usuario quiere cancelar una orden LIMIT que todavía no se ejecutó.
 - **FR-007**: Toda orden válida (incluidas las rechazadas por fondos o acciones insuficientes) MUST quedar registrada con su usuario, activo, lado, tipo, cantidad, precio, estado y fecha y hora.
 - **FR-008**: Una orden con datos inválidos (campos faltantes, cantidad no entera o no positiva, LIMIT sin precio, activo o usuario inexistente) MUST rechazarse sin registrarse, indicando qué dato es inválido.
 - **FR-009**: El sistema MUST garantizar que órdenes simultáneas del mismo usuario nunca dejen sus pesos disponibles ni sus acciones de un activo en negativo.
-- **FR-010**: El envío de una orden MUST aceptar un identificador de envío provisto por el cliente, de modo que repetir el mismo envío devuelva la orden original en lugar de crear otra.
+- **FR-010**: El envío de una orden MUST requerir un identificador de envío provisto por el cliente (sin él, el envío se rechaza como dato inválido), de modo que repetir el mismo envío devuelva la orden original en lugar de crear otra.
 - **FR-011**: El sistema MUST permitir cancelar una orden en estado `NEW` del propio usuario, pasándola a `CANCELLED`. Cancelar una orden en cualquier otro estado MUST rechazarse sin modificarla.
 - **FR-012**: Al ejecutarse una orden, la tenencia del usuario (pesos y acciones) MUST reflejarla en la siguiente consulta de portfolio.
 
@@ -169,3 +169,4 @@ Un usuario quiere cancelar una orden LIMIT que todavía no se ejecutó.
 - **Cancelación**: la cancelación la pide el mismo usuario dueño de la orden.
 - **Carga**: no hay requisito de throughput en el challenge; se asume uso de evaluación (decenas de usuarios), sin pruebas de carga obligatorias. El diseño igual debe soportar órdenes concurrentes del mismo usuario sin saldos negativos.
 - **Comisiones e impuestos**: no se consideran.
+- **Terminología**: una orden `REJECTED` es una orden registrada que el mercado rechazó (faltan pesos o acciones). Un pedido inválido o no procesable (datos mal formados, sin precio, cantidad cero) no genera ninguna orden.

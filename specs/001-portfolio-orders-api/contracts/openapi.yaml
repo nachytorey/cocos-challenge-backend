@@ -75,9 +75,9 @@ paths:
             schema: { $ref: '#/components/schemas/CreateOrderRequest' }
             examples:
               marketByQuantity:
-                value: { userId: 1, instrumentId: 47, side: BUY, type: MARKET, quantity: 10 }
+                value: { userId: 1, instrumentId: 47, side: BUY, type: MARKET, quantity: 10, currency: ARS }
               limitByAmount:
-                value: { userId: 1, instrumentId: 47, side: BUY, type: LIMIT, amount: '5000.00', price: '900.00' }
+                value: { userId: 1, instrumentId: 47, side: BUY, type: LIMIT, amount: '5000.00', price: '900.00', currency: ARS }
       responses:
         '201':
           description: Orden registrada (FILLED, NEW o REJECTED)
@@ -243,9 +243,12 @@ components:
     CreateOrderRequest:
       type: object
       additionalProperties: false
-      required: [userId, instrumentId, side, type]
-      description: Exactamente uno de quantity o amount. price obligatorio solo en LIMIT.
+      required: [userId, instrumentId, side, type, currency]
+      description: >
+        Exactamente uno de quantity o amount. price obligatorio solo en LIMIT. currency indica
+        la moneda de amount y price (principio VI: montos con moneda explícita).
       properties:
+        currency: { type: string, enum: [ARS], description: Moneda de amount y price }
         userId: { type: integer, minimum: 1 }
         instrumentId: { type: integer, minimum: 1 }
         side: { type: string, enum: [BUY, SELL] }
@@ -280,6 +283,9 @@ components:
           enum:
             - VALIDATION_FAILED
             - NOT_FOUND
+            - ORIGIN_NOT_ALLOWED
+            - HTTPS_REQUIRED
+            - PAYLOAD_TOO_LARGE
             - ORDER_NOT_CANCELLABLE
             - CONCURRENT_REQUEST
             - IDEMPOTENCY_KEY_REUSED

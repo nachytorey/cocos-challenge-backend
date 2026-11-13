@@ -27,6 +27,7 @@ Swagger UI: `http://localhost:3000/docs`. Colección de requests: `requests.http
 npm run lint && npm run typecheck && npm run check:cycles
 npm test                               # unit con cobertura
 npm run test:functional                # HTTP contra la base de test
+npm run test:load                      # smoke de latencia con k6 (SC-005), con la API levantada
 ```
 
 Todas deben pasar. La cobertura de la lógica de negocio debe ser ≥ 80%.
@@ -49,7 +50,7 @@ Todas deben pasar. La cobertura de la lógica de negocio debe ser ≥ 80%.
 ### 2. Orden MARKET por cantidad (US1, escenario 1)
 
 `POST /v1/orders` con `Idempotency-Key: k-market-1` y
-`{ "userId": 1, "instrumentId": 47, "side": "BUY", "type": "MARKET", "quantity": 10 }`
+`{ "userId": 1, "instrumentId": 47, "side": "BUY", "type": "MARKET", "quantity": 10, "currency": "ARS" }`
 → `201`, `status` `FILLED`, `price.amount` `925.85`. El portfolio muestra 50 acciones del 47 y
 `availableCash` 9.258,50 menos.
 
@@ -60,7 +61,7 @@ habiendo una sola orden nueva. Mismo header con otro body → `422 IDEMPOTENCY_K
 
 ### 4. Orden LIMIT por monto (US1, escenarios 2 y 5)
 
-`{ "userId": 1, "instrumentId": 47, "side": "BUY", "type": "LIMIT", "amount": "5000", "price": "900" }`
+`{ "userId": 1, "instrumentId": 47, "side": "BUY", "type": "LIMIT", "amount": "5000", "price": "900", "currency": "ARS" }`
 → `201`, `status` `NEW`, `quantity` 5. `reservedCash` sube 4.500,00 y `totalAccountValue` no cambia.
 
 ### 5. Fondos o acciones insuficientes (US1, escenarios 3 y 4)
@@ -74,6 +75,8 @@ habiendo una sola orden nueva. Mismo header con otro body → `422 IDEMPOTENCY_K
 - `quantity` y `amount` juntos, o ninguno → `400`.
 - `amount: "100"` sobre el 47 (precio 925,85) → `422 ZERO_QUANTITY`.
 - `instrumentId: 66` (ARS) con `BUY` → `400`.
+- Sin `currency`, o con `currency: "USD"` → `400`.
+- `quantity: -1` o `quantity: 1.5` → `400`.
 
 ### 7. Cancelación (US4)
 

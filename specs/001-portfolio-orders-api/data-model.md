@@ -42,6 +42,8 @@ Reglas: el instrumento `MONEDA` no se opera con `BUY`/`SELL` y no aparece en la 
 Validaciones al crear (vía API):
 
 - `side` ∈ {`BUY`, `SELL`}. `CASH_IN`/`CASH_OUT` no se crean por API.
+- `currency` obligatorio, ∈ {`ARS`}: moneda de `amount` y `price`.
+- En la API la columna `size` se expone como `quantity` (mismo valor, distinto nombre).
 - Exactamente uno de `quantity` (entero > 0) o `amount` (decimal > 0, máx. 2 decimales).
 - `type = LIMIT` → `price` obligatorio, decimal > 0, máx. 2 decimales. `type = MARKET` → `price` no se envía.
 - Con `amount`: `size = floor(amount / precio)`; si da 0 → `422 ZERO_QUANTITY`, no se registra.
@@ -113,7 +115,10 @@ Solo instrumentos con `quantity > 0`.
 
 | Campo | Regla |
 |---|---|
+| `instrumentId`, `ticker`, `name` | Del instrumento |
 | `quantity` | De holdings |
+| `averageCost` | De holdings |
+| `lastPrice` | `close` vigente; `null` si el instrumento no tiene precio |
 | `marketValue` | `quantity × close`; `null` si el instrumento no tiene precio |
 | `totalReturnPct` | `(close − averageCost) / averageCost × 100`; `null` si falta precio |
 | `dailyReturnPct` | `(close − previousClose) / previousClose × 100`; `null` si falta o es 0 |
@@ -122,6 +127,7 @@ Solo instrumentos con `quantity > 0`.
 
 | Campo | Regla |
 |---|---|
+| `userId` | El usuario consultado |
 | `availableCash` | De holdings |
 | `reservedCash` | De holdings |
 | `totalAccountValue` | `cashBalance` + Σ `marketValue` (las posiciones sin precio no suman) |
