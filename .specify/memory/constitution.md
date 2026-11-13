@@ -1,6 +1,7 @@
 <!--
 Sync Impact Report (temporary; remove before commit)
-- Version change: 2.1.0 → 3.0.0 (MAJOR)
+- Version change: 2.1.0 → 3.0.1 (3.0.0 MAJOR: Express replaces NestJS; 3.0.1 PATCH: no
+  frontend in scope, Principle VI renamed "API Contract")
 - Reason: the challenge statement requires Express.js + TypeORM; NestJS is replaced.
 - Redefined principles: II (Express layered architecture with a composition root instead of
   NestJS modules/DI), III (zod validation middleware instead of ValidationPipe; access
@@ -102,9 +103,10 @@ with fewer moving parts MUST be chosen.
 Rationale: a small codebase is easier to review, test and change; growth is cheap when it
 is driven by evidence.
 
-### VI. API Contract for a Separate Frontend (BASELINE)
-This repository is backend-only. The frontend (Next.js + React + TypeScript) lives in a
-separate repository and consumes this API, so the HTTP API is a public contract. EVERY
+### VI. API Contract (BASELINE)
+This repository is backend-only and has no frontend in scope. The HTTP API is consumed by
+external clients (Postman/REST collections, other services, a possible future frontend), so
+it is a public contract. EVERY
 endpoint MUST be documented in an OpenAPI document generated from the same zod schemas used
 for validation (operation, request schemas, all response codes including errors, and auth
 requirements when applicable), served with Swagger UI; an endpoint without OpenAPI
@@ -116,8 +118,8 @@ standard status codes; `camelCase` JSON fields; dates as ISO 8601 in UTC; moneta
 as decimal strings with an explicit ISO 4217 currency, never JSON numbers; and every list
 endpoint paginated with a bounded `limit`, using one pagination, sorting and filtering
 scheme for the whole API, with sortable and filterable fields whitelisted.
-Rationale: the frontend can only move independently if the contract is explicit, versioned
-and machine-readable; generating it from the validation schemas keeps it in sync.
+Rationale: clients can only integrate reliably if the contract is explicit, versioned and
+machine-readable; generating it from the validation schemas keeps it in sync.
 
 ### VII. Secure Session Tokens (CONDITIONAL, NON-NEGOTIABLE when triggered)
 Trigger: the API authenticates users. The session/authentication token MUST be delivered
@@ -274,7 +276,6 @@ Baseline (always present):
 - Logging: `pino` with `pino-http`.
 - Testing: Jest for unit tests; Jest with Supertest for functional HTTP tests.
 - Quality tooling: ESLint with `typescript-eslint`, Prettier, a circular-dependency check.
-- Frontend consumer: Next.js + React + TypeScript in a separate repository.
 
 Conditional (only when the corresponding trigger is recorded in a plan):
 - `cookie-parser`, `argon2`: the API authenticates users or stores credentials.
@@ -320,4 +321,4 @@ principle removals or redefinitions require a MAJOR version bump, new or materia
 expanded principles a MINOR bump, and clarifications a PATCH bump. Every plan and review
 MUST verify compliance with these principles, and unjustified complexity MUST be rejected.
 
-**Version**: 3.0.0 | **Ratified**: 2026-11-13 | **Last Amended**: 2026-11-13
+**Version**: 3.0.1 | **Ratified**: 2026-11-13 | **Last Amended**: 2026-11-13

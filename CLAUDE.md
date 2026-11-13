@@ -1,7 +1,7 @@
 # cocos-challenge-backend
 
 Backend del challenge de Cocos. Express 5 + TypeScript + PostgreSQL (TypeORM), como pide el enunciado (`fullstack-challenge.md`). Datos iniciales en `database.sql`.
-El frontend (Next.js) vive en un repo aparte y consume esta API.
+Sin frontend: el enunciado solo pide la API. Los clientes son colecciones de requests (Postman/REST Client) y Swagger UI.
 
 ## Reglas
 

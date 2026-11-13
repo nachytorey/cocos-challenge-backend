@@ -1,0 +1,328 @@
+openapi: 3.1.0
+info:
+  title: Cocos Challenge API
+  version: 1.0.0
+  description: >
+    Contrato de referencia de la feature 001. La implementación genera su OpenAPI desde los
+    schemas de zod y debe coincidir con este documento. Importes como string decimal con
+    moneda; fechas ISO 8601 en UTC; errores en formato Problem Details.
+servers:
+  - url: http://localhost:3000
+tags:
+  - name: portfolio
+  - name: instruments
+  - name: orders
+  - name: health
+
+paths:
+  /v1/users/{userId}/portfolio:
+    get:
+      tags: [portfolio]
+      summary: Portfolio de un usuario
+      operationId: getPortfolio
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Pesos disponibles y reservados, valor total y posiciones
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Portfolio' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/instruments:
+    get:
+      tags: [instruments]
+      summary: Buscar activos por ticker o nombre
+      operationId: searchInstruments
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Texto a buscar en ticker o nombre (sin distinguir mayúsculas)
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Página de instrumentos (excluye el instrumento de tipo MONEDA)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InstrumentPage' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/orders:
+    post:
+      tags: [orders]
+      summary: Enviar una orden de compra o venta
+      operationId: createOrder
+      description: >
+        MARKET se ejecuta al último cierre y queda FILLED. LIMIT queda NEW con el precio
+        enviado. Si faltan pesos o acciones, la orden se registra REJECTED (igual responde 201).
+        Repetir la misma Idempotency-Key con el mismo body devuelve la orden original (200).
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 255 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrderRequest' }
+            examples:
+              marketByQuantity:
+                value: { userId: 1, instrumentId: 47, side: BUY, type: MARKET, quantity: 10 }
+              limitByAmount:
+                value: { userId: 1, instrumentId: 47, side: BUY, type: LIMIT, amount: '5000.00', price: '900.00' }
+      responses:
+        '201':
+          description: Orden registrada (FILLED, NEW o REJECTED)
+          headers:
+            Location: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '200':
+          description: Replay de una Idempotency-Key ya usada con el mismo body
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /v1/orders/{orderId}/cancellation:
+    post:
+      tags: [orders]
+      summary: Cancelar una orden NEW
+      operationId: cancelOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [userId]
+              properties:
+                userId: { type: integer, minimum: 1, description: Dueño de la orden }
+      responses:
+        '200':
+          description: Orden cancelada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '404':
+          description: La orden no existe o no pertenece al usuario
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '409':
+          description: 'ORDER_NOT_CANCELLABLE: la orden no está en estado NEW; o CONCURRENT_REQUEST'
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /health/live:
+    get:
+      tags: [health]
+      summary: Liveness
+      responses:
+        '200': { description: El proceso responde }
+  /health/ready:
+    get:
+      tags: [health]
+      summary: Readiness (base de datos accesible)
+      responses:
+        '200': { description: Listo }
+        '503': { description: No listo (base caída o apagándose) }
+
+components:
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    Cursor:
+      name: cursor
+      in: query
+      description: Cursor opaco devuelto en page.nextCursor
+      schema: { type: string }
+
+  schemas:
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount: { type: string, pattern: '^-?\d+\.\d{2}$', example: '627500.00' }
+        currency: { type: string, enum: [ARS] }
+
+    Percentage:
+      type: [string, 'null']
+      pattern: '^-?\d+\.\d{2}$'
+      example: '-0.45'
+
+    Portfolio:
+      type: object
+      required: [userId, availableCash, reservedCash, totalAccountValue, positions]
+      properties:
+        userId: { type: integer }
+        availableCash: { $ref: '#/components/schemas/Money' }
+        reservedCash: { $ref: '#/components/schemas/Money' }
+        totalAccountValue: { $ref: '#/components/schemas/Money' }
+        positions:
+          type: array
+          items: { $ref: '#/components/schemas/Position' }
+
+    Position:
+      type: object
+      required: [instrumentId, ticker, name, quantity, marketValue, totalReturnPct, dailyReturnPct]
+      properties:
+        instrumentId: { type: integer }
+        ticker: { type: string }
+        name: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        averageCost: { $ref: '#/components/schemas/Money' }
+        lastPrice:
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+        marketValue:
+          description: null si el instrumento no tiene precio
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+        totalReturnPct: { $ref: '#/components/schemas/Percentage' }
+        dailyReturnPct: { $ref: '#/components/schemas/Percentage' }
+
+    Instrument:
+      type: object
+      required: [id, ticker, name, type, lastPrice]
+      properties:
+        id: { type: integer }
+        ticker: { type: string }
+        name: { type: string }
+        type: { type: string, example: ACCIONES }
+        lastPrice:
+          oneOf:
+            - $ref: '#/components/schemas/Money'
+            - type: 'null'
+
+    InstrumentPage:
+      type: object
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Instrument' }
+        page:
+          type: object
+          required: [nextCursor, hasMore]
+          properties:
+            nextCursor: { type: [string, 'null'] }
+            hasMore: { type: boolean }
+
+    CreateOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [userId, instrumentId, side, type]
+      description: Exactamente uno de quantity o amount. price obligatorio solo en LIMIT.
+      properties:
+        userId: { type: integer, minimum: 1 }
+        instrumentId: { type: integer, minimum: 1 }
+        side: { type: string, enum: [BUY, SELL] }
+        type: { type: string, enum: [MARKET, LIMIT] }
+        quantity: { type: integer, minimum: 1 }
+        amount: { type: string, pattern: '^\d+(\.\d{1,2})?$', description: Monto total en pesos }
+        price: { type: string, pattern: '^\d+(\.\d{1,2})?$', description: Precio límite (solo LIMIT) }
+
+    Order:
+      type: object
+      required: [id, userId, instrumentId, side, type, status, quantity, price, createdAt]
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        instrumentId: { type: integer }
+        side: { type: string, enum: [BUY, SELL, CASH_IN, CASH_OUT] }
+        type: { type: string, enum: [MARKET, LIMIT] }
+        status: { type: string, enum: [NEW, FILLED, REJECTED, CANCELLED] }
+        quantity: { type: integer }
+        price: { $ref: '#/components/schemas/Money' }
+        createdAt: { type: string, format: date-time }
+
+    ProblemDetails:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        code:
+          type: string
+          enum:
+            - VALIDATION_FAILED
+            - NOT_FOUND
+            - ORDER_NOT_CANCELLABLE
+            - CONCURRENT_REQUEST
+            - IDEMPOTENCY_KEY_REUSED
+            - PRICE_UNAVAILABLE
+            - ZERO_QUANTITY
+            - RATE_LIMITED
+            - REQUEST_TIMEOUT
+            - INTERNAL_ERROR
+        detail: { type: string }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              message: { type: string }
+        traceId: { type: string }
+
+  responses:
+    ValidationFailed:
+      description: VALIDATION_FAILED
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    NotFound:
+      description: NOT_FOUND (usuario, instrumento u orden)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Conflict:
+      description: CONCURRENT_REQUEST (vence el lock; reintentar con la misma Idempotency-Key)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Unprocessable:
+      description: IDEMPOTENCY_KEY_REUSED, PRICE_UNAVAILABLE o ZERO_QUANTITY
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    RateLimited:
+      description: RATE_LIMITED, con header Retry-After
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }

@@ -9,3 +9,5 @@ genero skilss pero varios
 2) constitution lo lleno!
 
 3) /speckit-specify documento challenge
+
+4) speckit-plan (creo el plan, )
