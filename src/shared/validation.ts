@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from './zod-openapi';
 
 /**
  * Límites de lo que la base de datos puede guardar. Validar el rango en el borde (principio III)

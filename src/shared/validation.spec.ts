@@ -1,5 +1,16 @@
 import { Int4Id, Int4IdParam, INT4_MAX, MAX_NUMERIC_10_2, NoNullChars } from './validation';
 
+describe('schemas compartidos y OpenAPI', () => {
+  it('admiten .openapi() aunque este módulo se importe antes que http/openapi', () => {
+    // Este archivo importa ./validation primero: reproduce el orden que rompió los tests de
+    // búsqueda (pagination → validation antes de que nadie extendiera zod con OpenAPI).
+    expect(typeof Int4Id.openapi).toBe('function');
+    expect(typeof Int4IdParam.openapi).toBe('function');
+    expect(typeof NoNullChars.openapi).toBe('function');
+    expect(Int4Id.openapi({ description: 'x' }).safeParse(5).success).toBe(true);
+  });
+});
+
 describe('Int4Id (identificadores y cantidades que caben en un INT de Postgres)', () => {
   it('acepta de 1 a 2147483647', () => {
     expect(Int4Id.safeParse(1).success).toBe(true);

@@ -116,7 +116,7 @@ paths:
         - name: orderId
           in: path
           required: true
-          schema: { type: integer, minimum: 1 }
+          schema: { type: integer, minimum: 1, maximum: 2147483647 }
       requestBody:
         required: true
         content:
@@ -126,7 +126,7 @@ paths:
               additionalProperties: false
               required: [userId]
               properties:
-                userId: { type: integer, minimum: 1, description: Dueño de la orden }
+                userId: { type: integer, minimum: 1, maximum: 2147483647, description: Dueño de la orden }
       responses:
         '200':
           description: Orden cancelada
@@ -177,7 +177,7 @@ components:
       name: userId
       in: path
       required: true
-      schema: { type: integer, minimum: 1 }
+      schema: { type: integer, minimum: 1, maximum: 2147483647 }
     Limit:
       name: limit
       in: query
@@ -270,13 +270,13 @@ components:
         la moneda de amount y price (principio VI: montos con moneda explícita).
       properties:
         currency: { type: string, enum: [ARS], description: Moneda de amount y price }
-        userId: { type: integer, minimum: 1 }
-        instrumentId: { type: integer, minimum: 1 }
+        userId: { type: integer, minimum: 1, maximum: 2147483647 }
+        instrumentId: { type: integer, minimum: 1, maximum: 2147483647 }
         side: { type: string, enum: [BUY, SELL] }
         type: { type: string, enum: [MARKET, LIMIT] }
-        quantity: { type: integer, minimum: 1 }
-        amount: { type: string, pattern: '^\d+(\.\d{1,2})?$', description: Monto total en pesos }
-        price: { type: string, pattern: '^\d+(\.\d{1,2})?$', description: Precio límite (solo LIMIT) }
+        quantity: { type: integer, minimum: 1, maximum: 2147483647 }
+        amount: { type: string, maxLength: 11, pattern: '^\d+(\.\d{1,2})?$', description: 'Monto total en pesos, de 0.01 a 99999999.99 (límite de NUMERIC(10,2))' }
+        price: { type: string, maxLength: 11, pattern: '^\d+(\.\d{1,2})?$', description: 'Precio límite (solo LIMIT), de 0.01 a 99999999.99' }
 
     Order:
       type: object

@@ -1,14 +1,11 @@
+import { z } from '../zod-openapi';
 import {
-  extendZodWithOpenApi,
   OpenAPIRegistry,
   OpenApiGeneratorV31,
   type ResponseConfig,
 } from '@asteasolutions/zod-to-openapi';
 import { Router } from 'express';
 import swaggerUi from 'swagger-ui-express';
-import { z } from 'zod';
-
-extendZodWithOpenApi(z);
 
 /** Registry único: cada archivo de rutas registra sus paths al cargarse el módulo. */
 export const registry = new OpenAPIRegistry();

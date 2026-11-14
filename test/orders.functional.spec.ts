@@ -42,6 +42,19 @@ describe('entradas fuera de rango: 400 y nunca 500 (principio III)', () => {
     ['quantity = 2^53-1', { ...market, quantity: 9007199254740991 }, 'quantity'],
     ['amount de 20 dígitos', { ...market, amount: '99999999999999999999.00' }, 'amount'],
     ['amount apenas por encima del máximo', { ...market, amount: '100000000.00' }, 'amount'],
+    // Cortos (pasan el límite de largo) pero mayores al máximo: solo el chequeo de rango los frena.
+    ['amount de 9 dígitos por encima del máximo', { ...market, amount: '100000000' }, 'amount'],
+    ['amount con un decimal por encima del máximo', { ...market, amount: '999999999.9' }, 'amount'],
+    [
+      'price LIMIT de 9 dígitos por encima del máximo',
+      { ...limit, quantity: 1, price: '100000000' },
+      'price',
+    ],
+    [
+      'price LIMIT con un decimal por encima del máximo',
+      { ...limit, quantity: 1, price: '999999999.9' },
+      'price',
+    ],
     ['amount de 5000 dígitos', { ...market, amount: '9'.repeat(5000) }, 'amount'],
     ['amount no numérico', { ...market, amount: 'abc' }, 'amount'],
     ['amount vacío', { ...market, amount: '' }, 'amount'],
