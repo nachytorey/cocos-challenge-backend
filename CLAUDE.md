@@ -31,8 +31,10 @@ constitution → `/speckit-specify` → `/speckit-clarify` → `/speckit-plan` �
 - `simplicity-first`: checklist para detectar sobreingeniería y disparadores para crecer.
 - `design-patterns`: elegir, nombrar y justificar un patrón de diseño por feature.
 - `concurrency-and-load`: locking, escala (miles de RPS) y tests de stress con k6.
+- `git-hooks-husky`: Husky + lint-staged (pre-commit lint/prettier/typecheck, pre-push tests) y su relación con el CI.
 
 <!-- SPECKIT START -->
+
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan
 <!-- SPECKIT END -->

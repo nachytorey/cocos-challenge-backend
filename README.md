@@ -196,3 +196,4 @@ Cómo se armó el proyecto, con [Spec Kit](https://github.com/github/spec-kit):
 5. `/speckit-tasks`: la lista de tareas.
 6. `/speckit-analyze`: revisión de consistencia entre spec, plan y tareas.
 7. `/speckit-implement`: la implementación, tarea por tarea y con los tests escritos primero.
+   /speckit-converge
