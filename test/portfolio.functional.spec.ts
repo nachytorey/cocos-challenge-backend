@@ -88,6 +88,19 @@ describe('GET /v1/users/:userId/portfolio', () => {
     expect(invalid.res.body).toMatchObject({ code: 'VALIDATION_FAILED' });
   });
 
+  it('userId fuera del rango del INT → 400 (no 500); el máximo exacto es un usuario inexistente (404)', async () => {
+    const tooBig = await getPortfolio(99999999999);
+    const justOver = await getPortfolio(2147483648);
+    const max = await getPortfolio(2147483647);
+    expect(tooBig.res.status).toBe(400);
+    expect(tooBig.res.body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      errors: [expect.objectContaining({ field: 'userId' })],
+    });
+    expect(justOver.res.status).toBe(400);
+    expect(max.res.status).toBe(404);
+  });
+
   it('un parámetro de query desconocido → 400 VALIDATION_FAILED (principio III)', async () => {
     const res = await request(app).get('/v1/users/1/portfolio').query({ x: 1 });
     expect(res.status).toBe(400);

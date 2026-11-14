@@ -89,6 +89,28 @@ describe('errorHandler', () => {
     expect(run(new ConcurrentRequestError()).statusCode).toBe(409);
   });
 
+  it.each([
+    ['22003', 'integer out of range'],
+    ['22021', 'invalid byte sequence for encoding "UTF8": 0x00'],
+    ['22P02', 'invalid input syntax for type integer: "abc"'],
+  ])(
+    'un error de datos de Postgres (%s) → 400 VALIDATION_FAILED sin exponer el mensaje de la base',
+    (code, driverMessage) => {
+      const res = run(
+        Object.assign(new Error(driverMessage), { driverError: { code, message: driverMessage } }),
+      );
+      expect(res.statusCode).toBe(400);
+      expect(res.body).toMatchObject({ status: 400, code: 'VALIDATION_FAILED' });
+      expect(JSON.stringify(res.body)).not.toContain(driverMessage);
+      expect(JSON.stringify(res.body)).not.toMatch(/integer|UTF8|syntax/);
+    },
+  );
+
+  it('otros errores de Postgres (p. ej. violación de unique 23505) siguen siendo 500', () => {
+    const res = run(Object.assign(new Error('dup'), { driverError: { code: '23505' } }));
+    expect(res.statusCode).toBe(500);
+  });
+
   it('error desconocido → 500 sin stack ni SQL, y se loguea', () => {
     const res = run(new Error('relation "orders" SELECT * FROM secret'));
     expect(res.statusCode).toBe(500);

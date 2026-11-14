@@ -1,6 +1,7 @@
 import type { Express } from 'express';
 import request from 'supertest';
 import type { DataSource } from 'typeorm';
+import { encodeCursor } from '../src/shared/pagination';
 import { closeTestDataSource, loadChallengeSeed, resetDb } from './helpers/db';
 import { buildTestApp } from './helpers/test-app';
 
@@ -69,6 +70,28 @@ describe('GET /v1/instruments', () => {
     expect(res.body).toMatchObject({
       code: 'VALIDATION_FAILED',
       errors: [expect.objectContaining({ message: expect.stringContaining('foo') as string })],
+    });
+  });
+
+  it('el carácter nulo en q → 400 (Postgres no lo acepta en texto)', async () => {
+    const { res } = await search({ q: 'pa\u0000m' });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      errors: [expect.objectContaining({ field: 'q' })],
+    });
+  });
+
+  it.each([
+    ['id fuera del INT', { ticker: 'A', id: 99999999999 }],
+    ['ticker con carácter nulo', { ticker: 'A\u0000', id: 1 }],
+    ['ticker más largo que la columna', { ticker: 'X'.repeat(11), id: 1 }],
+  ])('un cursor con %s → 400, nunca 500', async (_name, cursor) => {
+    const { res } = await search({ q: 'a', cursor: encodeCursor(cursor) });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      errors: [expect.objectContaining({ field: 'cursor' })],
     });
   });
 

@@ -60,6 +60,23 @@ describe('POST /v1/orders/:orderId/cancellation', () => {
     expect(res.body).toMatchObject({ code: 'NOT_FOUND', detail: 'Order 5 not found' });
   });
 
+  it('orderId y userId fuera del rango del INT → 400 (no 500); los máximos exactos → 404', async () => {
+    const bigOrder = await cancel(99999999999, 1);
+    const bigUser = await cancel(5, 99999999999);
+    const maxOrder = await cancel(2147483647, 1);
+    expect(bigOrder.status).toBe(400);
+    expect(bigOrder.body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      errors: [expect.objectContaining({ field: 'orderId' })],
+    });
+    expect(bigUser.status).toBe(400);
+    expect(bigUser.body).toMatchObject({
+      errors: [expect.objectContaining({ field: 'userId' })],
+    });
+    expect(maxOrder.status).toBe(404);
+    expect(await reservedCash(1)).toBe('125500.00');
+  });
+
   it('un parámetro de query desconocido → 400 y la orden no se cancela (principio III)', async () => {
     const res = await request(app)
       .post('/v1/orders/5/cancellation')

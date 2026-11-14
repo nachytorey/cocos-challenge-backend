@@ -2,6 +2,7 @@ import type { Express } from 'express';
 import request from 'supertest';
 import type { DataSource } from 'typeorm';
 import { closeTestDataSource, loadChallengeSeed, resetDb } from './helpers/db';
+import { createInstrument, createMarketData } from './helpers/factories';
 import { countOrders, holdingsOf } from './helpers/holdings';
 import { buildTestApp } from './helpers/test-app';
 
@@ -27,6 +28,74 @@ function send(body: object) {
 
 const cancelOrder = (orderId: number) =>
   request(app).post(`/v1/orders/${orderId}/cancellation`).send({ userId: 1 });
+
+describe('entradas fuera de rango: 400 y nunca 500 (principio III)', () => {
+  const market = { ...base, side: 'BUY', type: 'MARKET' };
+  const limit = { ...base, side: 'BUY', type: 'LIMIT' };
+
+  it.each([
+    [
+      'quantity = 2^31 (más que el INT de la base)',
+      { ...market, quantity: 2147483648 },
+      'quantity',
+    ],
+    ['quantity = 2^53-1', { ...market, quantity: 9007199254740991 }, 'quantity'],
+    ['amount de 20 dígitos', { ...market, amount: '99999999999999999999.00' }, 'amount'],
+    ['amount apenas por encima del máximo', { ...market, amount: '100000000.00' }, 'amount'],
+    ['amount de 5000 dígitos', { ...market, amount: '9'.repeat(5000) }, 'amount'],
+    ['amount no numérico', { ...market, amount: 'abc' }, 'amount'],
+    ['amount vacío', { ...market, amount: '' }, 'amount'],
+    ['amount en notación científica', { ...market, amount: '1e5' }, 'amount'],
+    ['price no numérico', { ...limit, quantity: 1, price: 'NaN' }, 'price'],
+    [
+      'price LIMIT por encima de NUMERIC(10,2)',
+      { ...limit, quantity: 1, price: '1000000000.00' },
+      'price',
+    ],
+    [
+      'price LIMIT apenas por encima del máximo',
+      { ...limit, quantity: 1, price: '100000000.00' },
+      'price',
+    ],
+    ['userId = 99999999999', { ...market, quantity: 1, userId: 99999999999 }, 'userId'],
+    [
+      'instrumentId = 99999999999',
+      { ...market, quantity: 1, instrumentId: 99999999999 },
+      'instrumentId',
+    ],
+  ])('%s → 400 VALIDATION_FAILED y no registra nada', async (_name, body, field) => {
+    const before = await countOrders(ds, 1);
+    const res = await send(body);
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      errors: expect.arrayContaining([expect.objectContaining({ field })]) as unknown[],
+    });
+    expect(await countOrders(ds, 1)).toBe(before);
+  });
+
+  it('un amount cuya cantidad de acciones no cabe en el INT → 400 (precio de mercado muy bajo)', async () => {
+    // Instrumento a $0,01: floor(99.999.999,99 / 0,01) = 9.999.999.999 > 2.147.483.647.
+    const instrumentId = await createInstrument(ds, { ticker: 'PENNY' });
+    await createMarketData(ds, { instrumentId, close: '0.01', previousClose: '0.01' });
+    const res = await send({ ...market, instrumentId, amount: '99999999.99' });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      errors: [expect.objectContaining({ field: 'amount' })],
+    });
+  });
+
+  it('los máximos exactos se aceptan: se registra REJECTED por falta de fondos, no 500', async () => {
+    const maxQuantity = await send({ ...market, quantity: 2147483647 });
+    const maxAmount = await send({ ...market, amount: '99999999.99' });
+    const maxPrice = await send({ ...limit, quantity: 1, price: '99999999.99' });
+    expect([maxQuantity.status, maxAmount.status, maxPrice.status]).toEqual([201, 201, 201]);
+    expect(maxQuantity.body).toMatchObject({ status: 'REJECTED', quantity: 2147483647 });
+    expect(maxAmount.body).toMatchObject({ status: 'REJECTED' });
+    expect(maxPrice.body).toMatchObject({ status: 'REJECTED', price: { amount: '99999999.99' } });
+  });
+});
 
 describe('reservas de órdenes NEW (FR-014, FR-014a, FR-014b)', () => {
   it('una LIMIT BUY pendiente reserva pesos y bloquea gastar de más; cancelarla libera la reserva', async () => {

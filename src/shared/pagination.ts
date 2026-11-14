@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ValidationFailedError } from './errors';
+import { hasNoNullChars, Int4Id } from './validation';
 
 /** Esquema único de paginación de la API (principio VI): cursor keyset + limit acotado. */
 export const PaginationQuery = {
@@ -7,7 +8,10 @@ export const PaginationQuery = {
   cursor: z.string().max(512).optional(),
 };
 
-const KeysetCursor = z.object({ ticker: z.string(), id: z.number().int().positive() }).strict();
+/** `ticker` es VARCHAR(10) y `id` es INT: un cursor fuera de esos rangos nunca es válido. */
+const KeysetCursor = z
+  .object({ ticker: z.string().max(10).refine(hasNoNullChars), id: Int4Id })
+  .strict();
 export type KeysetCursor = z.infer<typeof KeysetCursor>;
 
 export interface Page<T> {

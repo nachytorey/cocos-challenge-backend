@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { registry } from '../shared/http/openapi';
+import { Int4IdParam } from '../shared/validation';
 import { MoneySchema } from '../orders/orders.schemas';
 
 export const PortfolioParams = z
   .object({
-    userId: z.coerce.number().int().positive(),
+    userId: Int4IdParam,
   })
   .strict();
 

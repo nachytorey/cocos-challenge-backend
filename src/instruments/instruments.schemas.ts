@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { MoneySchema } from '../orders/orders.schemas';
 import { registry } from '../shared/http/openapi';
 import { PaginationQuery } from '../shared/pagination';
+import { hasNoNullChars } from '../shared/validation';
 
 export const SearchQuery = z
   .object({
@@ -10,6 +11,7 @@ export const SearchQuery = z
       .trim()
       .min(1)
       .max(100)
+      .refine(hasNoNullChars, 'must not contain null characters')
       .openapi({ description: 'Texto a buscar en ticker o nombre (sin distinguir mayúsculas)' }),
     ...PaginationQuery,
   })

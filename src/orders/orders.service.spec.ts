@@ -99,6 +99,26 @@ describe('OrdersService.create', () => {
     expect(result.order.quantity).toBe(3);
   });
 
+  it('un amount cuya cantidad de acciones no cabe en el INT → ValidationFailedError nombrando amount', async () => {
+    // A $0,01 por acción: floor(99.999.999,99 / 0,01) = 9.999.999.999 > 2.147.483.647.
+    const { service, inserted } = build({ close: '0.01', holdingOrders: [cash(1)] });
+    const { quantity: _q, ...rest } = buy;
+    const failure = service.create({ ...rest, amount: '99999999.99' }, 'key-00012');
+    await expect(failure).rejects.toThrow(ValidationFailedError);
+    await expect(failure).rejects.toMatchObject({
+      errors: [expect.objectContaining({ field: 'amount' })],
+    });
+    expect(inserted).toHaveLength(0);
+  });
+
+  it('el mayor amount cuya cantidad sí cabe en el INT se acepta', async () => {
+    // A $1 por acción: 2.147.483.647 acciones, justo el máximo.
+    const { service } = build({ close: '1.00', holdingOrders: [cash(1)] });
+    const { quantity: _q, ...rest } = buy;
+    const result = await service.create({ ...rest, amount: '2147483647' }, 'key-00013');
+    expect(result.order).toMatchObject({ quantity: 2147483647, status: 'REJECTED' });
+  });
+
   it('si el monto no alcanza para una acción lanza ZeroQuantityError', async () => {
     const { service } = build({ close: '300.00', holdingOrders: [cash(10000)] });
     const { quantity: _q, ...rest } = buy;

@@ -12,6 +12,7 @@ import {
   ZeroQuantityError,
 } from '../shared/errors';
 import { toDecimal, type Decimal } from '../shared/money';
+import { INT4_MAX } from '../shared/validation';
 import type { UsersRepository } from '../users/users.repository';
 import type { IdempotencyKey } from './idempotency-key.entity';
 import type { OrderStatus, OrderType } from './order.entity';
@@ -81,6 +82,12 @@ function resolveSize(input: CreateOrderInput, price: Decimal): number {
       .dividedToIntegerBy(price)
       .toNumber();
   if (size <= 0) throw new ZeroQuantityError();
+  // La columna `size` es un INT: un monto que compra más acciones que eso no se puede registrar.
+  if (size > INT4_MAX) {
+    throw new ValidationFailedError('The amount buys more shares than can be recorded', [
+      { field: 'amount', message: `at this price the amount buys more than ${INT4_MAX} shares` },
+    ]);
+  }
   return size;
 }
 

@@ -53,6 +53,12 @@ interface ErrorLogger {
 }
 
 const LOCK_NOT_AVAILABLE = '55P03';
+/**
+ * Errores de datos de Postgres (clase 22) que provoca un valor del cliente que la validación no
+ * detuvo: fuera de rango (22003), carácter no representable (22021) o sintaxis inválida (22P02).
+ * Red de seguridad: se informan como 400 sin exponer el mensaje de la base.
+ */
+const DATA_EXCEPTION_CODES = new Set(['22003', '22021', '22P02']);
 
 function hasProp<K extends string>(value: unknown, key: K): value is Record<K, unknown> {
   return typeof value === 'object' && value !== null && key in value;
@@ -93,10 +99,17 @@ function toProblem(err: unknown): Problem | undefined {
   if (err instanceof DomainError) return fromDomain(err);
   const bodyProblem = hasProp(err, 'type') ? fromBodyParser(err.type) : undefined;
   if (bodyProblem) return bodyProblem;
-  if (postgresCode(err) === LOCK_NOT_AVAILABLE) {
+  const pgCode = postgresCode(err);
+  if (pgCode === LOCK_NOT_AVAILABLE) {
     return {
       code: 'CONCURRENT_REQUEST',
       detail: 'Another request for the same user is in progress; retry',
+    };
+  }
+  if (typeof pgCode === 'string' && DATA_EXCEPTION_CODES.has(pgCode)) {
+    return {
+      code: 'VALIDATION_FAILED',
+      detail: 'The request contains a value that cannot be processed',
     };
   }
   return undefined;

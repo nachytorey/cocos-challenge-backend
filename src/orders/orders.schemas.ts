@@ -1,13 +1,31 @@
 import { z } from 'zod';
 import { formatMoney, toDecimal } from '../shared/money';
 import { registry } from '../shared/http/openapi';
+import { Int4Id, Int4IdParam, MAX_NUMERIC_10_2 } from '../shared/validation';
 import { OrderSides, OrderStatuses, OrderTypes, type Order } from './order.entity';
 
-/** Decimal positivo con hasta 2 decimales, como string (nunca número JSON). */
+const DECIMAL_PATTERN = /^\d+(\.\d{1,2})?$/;
+/** Largo de MAX_NUMERIC_10_2: más caracteres que eso nunca puede ser válido. */
+const MAX_DECIMAL_LENGTH = MAX_NUMERIC_10_2.length;
+
+/**
+ * Decimal positivo con hasta 2 decimales, como string (nunca número JSON), que cabe en una
+ * columna NUMERIC(10,2). El rango solo se evalúa cuando el formato es válido: así un texto como
+ * "abc" produce un error de validación y no una excepción de la librería decimal.
+ */
 const PositiveDecimal = z
   .string()
-  .regex(/^\d+(\.\d{1,2})?$/, 'must be a decimal string with up to 2 decimals')
-  .refine((v) => toDecimal(v).gt(0), 'must be greater than 0');
+  .max(MAX_DECIMAL_LENGTH, `must have at most ${MAX_DECIMAL_LENGTH} characters`)
+  .regex(DECIMAL_PATTERN, 'must be a decimal string with up to 2 decimals')
+  .superRefine((value, ctx) => {
+    if (value.length > MAX_DECIMAL_LENGTH || !DECIMAL_PATTERN.test(value)) return;
+    const amount = toDecimal(value);
+    if (amount.lte(0)) {
+      ctx.addIssue({ code: 'custom', message: 'must be greater than 0' });
+    } else if (amount.gt(MAX_NUMERIC_10_2)) {
+      ctx.addIssue({ code: 'custom', message: `must be at most ${MAX_NUMERIC_10_2}` });
+    }
+  });
 
 export const MoneySchema = registry.register(
   'Money',
@@ -21,12 +39,12 @@ export const CreateOrderBody = registry.register(
   'CreateOrderRequest',
   z
     .object({
-      userId: z.number().int().positive(),
-      instrumentId: z.number().int().positive(),
+      userId: Int4Id,
+      instrumentId: Int4Id,
       side: z.enum(['BUY', 'SELL']),
       type: z.enum(OrderTypes),
       currency: z.literal('ARS').openapi({ description: 'Moneda de amount y price' }),
-      quantity: z.number().int().positive().optional(),
+      quantity: Int4Id.optional(),
       amount: PositiveDecimal.optional().openapi({ description: 'Monto total en pesos' }),
       price: PositiveDecimal.optional().openapi({ description: 'Precio límite (solo LIMIT)' }),
     })
@@ -59,12 +77,12 @@ export const IdempotencyHeaders = z.object({
 
 export const CancelOrderParams = z
   .object({
-    orderId: z.coerce.number().int().positive(),
+    orderId: Int4IdParam,
   })
   .strict();
 
 export const CancelOrderBody = z
-  .object({ userId: z.number().int().positive().openapi({ description: 'Dueño de la orden' }) })
+  .object({ userId: Int4Id.openapi({ description: 'Dueño de la orden' }) })
   .strict();
 
 export const OrderResponse = registry.register(
