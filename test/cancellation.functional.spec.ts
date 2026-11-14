@@ -77,6 +77,18 @@ describe('POST /v1/orders/:orderId/cancellation', () => {
     expect(noUser.status).toBe(400);
   });
 
+  it('5 cancelaciones simultáneas de la misma orden: un 200 y cuatro 409, y la reserva se libera una sola vez', async () => {
+    const responses = await Promise.all(Array.from({ length: 5 }, () => cancel(5, 1)));
+
+    expect(responses.map((r) => r.status).sort()).toEqual([200, 409, 409, 409, 409]);
+    const conflicts = responses.filter((r) => r.status === 409);
+    expect(
+      conflicts.every((r) => (r.body as { code: string }).code === 'ORDER_NOT_CANCELLABLE'),
+    ).toBe(true);
+    // La orden 5 reservaba 35.500: 125.500 → 90.000, una sola vez.
+    expect(await reservedCash(1)).toBe('90000.00');
+  });
+
   it('cancelación y compra simultáneas del mismo usuario no dejan saldo negativo', async () => {
     const userId = await createUser(ds);
     const instrumentId = await createInstrument(ds, { ticker: 'CNCL' });

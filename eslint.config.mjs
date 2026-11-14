@@ -56,7 +56,8 @@ export default tseslint.config(
       'jest/expect-expect': [
         'error',
         {
-          assertFunctionNames: ['expect', 'request.**.expect', 'send.**.expect', 'post.**.expect'],
+          // `expect*`: también cuentan como aserción los helpers que empiezan con expect (expectProblem).
+          assertFunctionNames: ['expect*', 'request.**.expect', 'send.**.expect', 'post.**.expect'],
         },
       ],
       // Los bloques describe() agrupan muchos casos; el límite por función aplica al código de producción.

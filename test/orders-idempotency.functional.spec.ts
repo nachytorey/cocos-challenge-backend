@@ -3,7 +3,7 @@ import request from 'supertest';
 import type { DataSource } from 'typeorm';
 import { closeTestDataSource, loadChallengeSeed, resetDb } from './helpers/db';
 import { cashIn, createUser } from './helpers/factories';
-import { countOrders } from './helpers/holdings';
+import { countOrders, holdingsOf } from './helpers/holdings';
 import { buildTestApp } from './helpers/test-app';
 
 let app: Express;
@@ -75,5 +75,43 @@ describe('idempotencia de POST /v1/orders', () => {
     expect(invalid.status).toBe(400);
     expect(valid.status).toBe(201);
     expect(valid.body).toMatchObject({ status: 'FILLED', quantity: 1 });
+  });
+});
+
+describe('reintentos simultáneos con la misma Idempotency-Key (SC-003, plan R5)', () => {
+  it('8 envíos idénticos a la vez dan un solo 201, siete 200 y una sola orden', async () => {
+    const ordersBefore = await countOrders(ds, 1);
+    const cashBefore = (await holdingsOf(ds, 1)).availableCash;
+
+    const responses = await Promise.all(
+      Array.from({ length: 8 }, () => post('idem-key-0006', order)),
+    );
+
+    expect(responses.map((r) => r.status).sort()).toEqual([200, 200, 200, 200, 200, 200, 200, 201]);
+    expect(new Set(responses.map((r) => (r.body as { id: number }).id)).size).toBe(1);
+    expect(await countOrders(ds, 1)).toBe(ordersBefore + 1);
+    // El saldo se debitó una sola vez: 1 acción × 925,85.
+    const cashAfter = (await holdingsOf(ds, 1)).availableCash;
+    expect(cashBefore.minus(cashAfter).toFixed(2)).toBe('925.85');
+  });
+
+  it('la misma clave con bodies distintos a la vez: gana uno solo, el resto es 200 (igual) o 422 (distinto)', async () => {
+    const ordersBefore = await countOrders(ds, 1);
+    const other = { ...order, quantity: 2 };
+
+    const responses = await Promise.all([
+      ...Array.from({ length: 4 }, () => post('idem-key-0007', order)),
+      ...Array.from({ length: 4 }, () => post('idem-key-0007', other)),
+    ]);
+
+    const statuses = responses.map((r) => r.status);
+    expect(statuses.filter((s) => s === 201)).toHaveLength(1);
+    expect(statuses.every((s) => [200, 201, 422].includes(s))).toBe(true);
+    expect(await countOrders(ds, 1)).toBe(ordersBefore + 1);
+    const winner = responses.find((r) => r.status === 201);
+    const sameBody = responses.filter((r) => r.status === 200);
+    expect(
+      sameBody.every((r) => (r.body as { id: number }).id === (winner?.body as { id: number }).id),
+    ).toBe(true);
   });
 });
