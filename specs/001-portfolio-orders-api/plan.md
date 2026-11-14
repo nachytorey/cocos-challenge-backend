@@ -130,7 +130,7 @@ src/
 │   ├── errors.ts                  # errores de dominio con code
 │   ├── money.ts                   # decimal.js, formato "0.00" + ARS
 │   ├── pagination.ts              # cursor keyset
-│   ├── logger.ts
+│   ├── logger.ts                  # pino con redact (+ logger.spec.ts)
 │   └── http/
 │       ├── validate.ts            # middleware zod
 │       ├── error-handler.ts       # → Problem Details
@@ -164,6 +164,7 @@ test/
 ├── helpers/{test-app.ts, db.ts, factories.ts}
 ├── infra.functional.spec.ts
 ├── repositories.functional.spec.ts
+├── shutdown.functional.spec.ts    # graceful shutdown (principio XVII)
 ├── openapi.functional.spec.ts     # contrato vs contracts/openapi.yaml
 ├── load/portfolio-search.k6.js    # smoke de latencia (SC-005)
 ├── orders.functional.spec.ts      # test funcional de envío de orden (enunciado)

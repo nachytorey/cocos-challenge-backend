@@ -1,0 +1,8 @@
+dist
+coverage
+node_modules
+specs
+.specify
+.claude
+package-lock.json
+database.sql

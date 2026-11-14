@@ -16,3 +16,5 @@ genero skilss pero varios
 
 
 /speckit-analyze
+
+/speckit-implement

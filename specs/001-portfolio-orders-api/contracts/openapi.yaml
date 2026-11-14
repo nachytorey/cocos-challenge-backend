@@ -31,6 +31,9 @@ paths:
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/RateLimited' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /v1/instruments:
     get:
@@ -53,6 +56,9 @@ paths:
               schema: { $ref: '#/components/schemas/InstrumentPage' }
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '429': { $ref: '#/components/responses/RateLimited' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /v1/orders:
     post:
@@ -95,7 +101,11 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '429': { $ref: '#/components/responses/RateLimited' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /v1/orders/{orderId}/cancellation:
     post:
@@ -134,7 +144,11 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/ProblemDetails' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
         '429': { $ref: '#/components/responses/RateLimited' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
 
   /health/live:
     get:
@@ -142,6 +156,10 @@ paths:
       summary: Liveness
       responses:
         '200': { description: El proceso responde }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
   /health/ready:
     get:
       tags: [health]
@@ -149,6 +167,9 @@ paths:
       responses:
         '200': { description: Listo }
         '503': { description: No listo (base caída o apagándose) }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
 components:
   parameters:
@@ -305,6 +326,26 @@ components:
         traceId: { type: string }
 
   responses:
+    Forbidden:
+      description: ORIGIN_NOT_ALLOWED (Origin no permitido en métodos que cambian estado) o HTTPS_REQUIRED (request sin TLS en producción)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    PayloadTooLarge:
+      description: PAYLOAD_TOO_LARGE (body mayor al límite configurado)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    InternalError:
+      description: INTERNAL_ERROR (error inesperado, sin detalles internos)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    ServiceUnavailable:
+      description: REQUEST_TIMEOUT (el request superó el tiempo máximo)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
     ValidationFailed:
       description: VALIDATION_FAILED
       content:
