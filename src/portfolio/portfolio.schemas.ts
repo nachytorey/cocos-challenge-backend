@@ -2,9 +2,11 @@ import { z } from 'zod';
 import { registry } from '../shared/http/openapi';
 import { MoneySchema } from '../orders/orders.schemas';
 
-export const PortfolioParams = z.object({
-  userId: z.coerce.number().int().positive(),
-});
+export const PortfolioParams = z
+  .object({
+    userId: z.coerce.number().int().positive(),
+  })
+  .strict();
 
 const Percentage = z
   .string()

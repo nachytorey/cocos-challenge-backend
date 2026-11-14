@@ -80,6 +80,12 @@ describe('POST /v1/orders (test funcional del enunciado)', () => {
     ['quantity con decimales', { side: 'BUY', type: 'MARKET', quantity: 1.5 }],
     ['side inválido', { side: 'CASH_IN', type: 'MARKET', quantity: 1 }],
     ['campo desconocido', { side: 'BUY', type: 'MARKET', quantity: 1, foo: 1 }],
+    ['amount "0"', { side: 'BUY', type: 'MARKET', amount: '0' }],
+    ['amount "0.00"', { side: 'BUY', type: 'MARKET', amount: '0.00' }],
+    ['amount negativo', { side: 'BUY', type: 'MARKET', amount: '-5' }],
+    ['amount con más de 2 decimales', { side: 'BUY', type: 'MARKET', amount: '10.123' }],
+    ['price "0" en una LIMIT', { side: 'BUY', type: 'LIMIT', quantity: 1, price: '0' }],
+    ['price negativo en una LIMIT', { side: 'BUY', type: 'LIMIT', quantity: 1, price: '-10' }],
   ])('%s → 400 sin registrar', async (_name, body) => {
     const before = await countOrders(ds, 1);
     const res = await send({ ...base, ...body }).expect(400);
@@ -139,6 +145,14 @@ describe('POST /v1/orders (test funcional del enunciado)', () => {
     expect(noUser.body).toMatchObject({ code: 'NOT_FOUND', detail: 'User 999 not found' });
     expect(noInstrument.status).toBe(404);
     expect(noInstrument.body).toMatchObject({ detail: 'Instrument 9999 not found' });
+  });
+
+  it('un parámetro de query desconocido → 400 y no se registra la orden (principio III)', async () => {
+    const before = await countOrders(ds, 1);
+    const res = await send({ ...base, side: 'BUY', type: 'MARKET', quantity: 1 }).query({ x: 1 });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(await countOrders(ds, 1)).toBe(before);
   });
 
   it('sin Idempotency-Key → 400', async () => {

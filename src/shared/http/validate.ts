@@ -1,7 +1,10 @@
 import type { Request, RequestHandler } from 'express';
-import type { z } from 'zod';
+import { z } from 'zod';
 
 const PARTS = ['body', 'query', 'params', 'headers'] as const;
+
+/** Query de las rutas que no reciben parámetros: cualquier parámetro se rechaza (principio III). */
+export const NoQuery = z.object({}).strict();
 type Part = (typeof PARTS)[number];
 
 export type Schemas = Partial<Record<Part, z.ZodType>>;

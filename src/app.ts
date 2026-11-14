@@ -25,6 +25,7 @@ import { NotFoundError, RateLimitedError } from './shared/errors';
 import { errorHandler } from './shared/http/error-handler';
 import { openApiRouter } from './shared/http/openapi';
 import { originCheck } from './shared/http/origin-check';
+import { secondsUntilReset } from './shared/http/rate-limit';
 import { requestTimeout } from './shared/http/request-timeout';
 import { requireHttps } from './shared/http/require-https';
 import type { Logger } from './shared/logger';
@@ -58,7 +59,9 @@ export function rateLimiter(windowMs: number, limit: number): RequestHandler {
     limit,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
-    handler: (_req, _res, next) => next(new RateLimitedError(Math.ceil(windowMs / 1000))),
+    // Retry-After = tiempo restante real de la ventana, no la ventana completa.
+    handler: (req, _res, next) =>
+      next(new RateLimitedError(secondsUntilReset(req.rateLimit?.resetTime, windowMs))),
   });
 }
 

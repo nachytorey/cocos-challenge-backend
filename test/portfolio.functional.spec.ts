@@ -88,6 +88,12 @@ describe('GET /v1/users/:userId/portfolio', () => {
     expect(invalid.res.body).toMatchObject({ code: 'VALIDATION_FAILED' });
   });
 
+  it('un parámetro de query desconocido → 400 VALIDATION_FAILED (principio III)', async () => {
+    const res = await request(app).get('/v1/users/1/portfolio').query({ x: 1 });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: 'VALIDATION_FAILED' });
+  });
+
   it('tras una compra MARKET el portfolio refleja la nueva cantidad (FR-012)', async () => {
     const created = await order({ type: 'MARKET', quantity: 10 }, 'portfolio-key-1');
     expect(created.status).toBe(201);

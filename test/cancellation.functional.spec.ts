@@ -60,6 +60,16 @@ describe('POST /v1/orders/:orderId/cancellation', () => {
     expect(res.body).toMatchObject({ code: 'NOT_FOUND', detail: 'Order 5 not found' });
   });
 
+  it('un parámetro de query desconocido → 400 y la orden no se cancela (principio III)', async () => {
+    const res = await request(app)
+      .post('/v1/orders/5/cancellation')
+      .query({ x: 1 })
+      .send({ userId: 1 });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(await reservedCash(1)).toBe('125500.00');
+  });
+
   it('orderId inválido o body sin userId → 400', async () => {
     const badId = await cancel('abc', 1);
     const noUser = await request(app).post('/v1/orders/5/cancellation').send({});

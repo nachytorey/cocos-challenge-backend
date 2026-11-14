@@ -63,6 +63,15 @@ describe('GET /v1/instruments', () => {
     expect(tooMany.res.body).toMatchObject({ code: 'VALIDATION_FAILED' });
   });
 
+  it('un parámetro de query desconocido → 400 VALIDATION_FAILED nombrándolo (principio III)', async () => {
+    const { res } = await search({ q: 'a', foo: 1 });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      errors: [expect.objectContaining({ message: expect.stringContaining('foo') as string })],
+    });
+  });
+
   it('cursor inválido → 400', async () => {
     const { res } = await search({ q: 'a', cursor: 'basura' });
     expect(res.status).toBe(400);

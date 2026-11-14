@@ -57,9 +57,11 @@ export const IdempotencyHeaders = z.object({
   'idempotency-key': z.string().min(8).max(255),
 });
 
-export const CancelOrderParams = z.object({
-  orderId: z.coerce.number().int().positive(),
-});
+export const CancelOrderParams = z
+  .object({
+    orderId: z.coerce.number().int().positive(),
+  })
+  .strict();
 
 export const CancelOrderBody = z
   .object({ userId: z.number().int().positive().openapi({ description: 'Dueño de la orden' }) })

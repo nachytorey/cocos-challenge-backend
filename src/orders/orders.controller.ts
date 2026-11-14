@@ -1,5 +1,5 @@
 import type { RequestHandler } from 'express';
-import { getValidated } from '../shared/http/validate';
+import { getValidated, NoQuery } from '../shared/http/validate';
 import {
   CancelOrderBody,
   CancelOrderParams,
@@ -8,8 +8,16 @@ import {
 } from './orders.schemas';
 import type { OrdersService } from './orders.service';
 
-export const createOrderSchemas = { body: CreateOrderBody, headers: IdempotencyHeaders };
-export const cancelOrderSchemas = { params: CancelOrderParams, body: CancelOrderBody };
+export const createOrderSchemas = {
+  body: CreateOrderBody,
+  headers: IdempotencyHeaders,
+  query: NoQuery,
+};
+export const cancelOrderSchemas = {
+  params: CancelOrderParams,
+  body: CancelOrderBody,
+  query: NoQuery,
+};
 
 /** Solo transporte: toma el input validado, llama al service y elige el status HTTP. */
 export class OrdersController {

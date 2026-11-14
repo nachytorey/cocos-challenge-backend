@@ -1,9 +1,9 @@
 import type { RequestHandler } from 'express';
-import { getValidated } from '../shared/http/validate';
+import { getValidated, NoQuery } from '../shared/http/validate';
 import { PortfolioParams } from './portfolio.schemas';
 import type { PortfolioService } from './portfolio.service';
 
-export const portfolioSchemas = { params: PortfolioParams };
+export const portfolioSchemas = { params: PortfolioParams, query: NoQuery };
 
 export class PortfolioController {
   constructor(private readonly service: PortfolioService) {}
