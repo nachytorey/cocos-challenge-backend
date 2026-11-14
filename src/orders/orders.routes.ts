@@ -1,8 +1,14 @@
 import { Router, type RequestHandler } from 'express';
 import { problem, registry, withCommonResponses } from '../shared/http/openapi';
 import { validate } from '../shared/http/validate';
-import { createOrderSchemas, type OrdersController } from './orders.controller';
-import { CreateOrderBody, IdempotencyHeaders, OrderResponse } from './orders.schemas';
+import { cancelOrderSchemas, createOrderSchemas, type OrdersController } from './orders.controller';
+import {
+  CancelOrderBody,
+  CancelOrderParams,
+  CreateOrderBody,
+  IdempotencyHeaders,
+  OrderResponse,
+} from './orders.schemas';
 
 const orderContent = { 'application/json': { schema: OrderResponse } };
 
@@ -32,8 +38,31 @@ registry.registerPath({
   }),
 });
 
+registry.registerPath({
+  method: 'post',
+  path: '/v1/orders/{orderId}/cancellation',
+  tags: ['orders'],
+  summary: 'Cancelar una orden NEW',
+  request: {
+    params: CancelOrderParams,
+    body: { required: true, content: { 'application/json': { schema: CancelOrderBody } } },
+  },
+  responses: withCommonResponses('post', {
+    '200': { description: 'Orden cancelada', content: orderContent },
+    '400': problem('VALIDATION_FAILED'),
+    '404': problem('La orden no existe o no pertenece al usuario'),
+    '409': problem('ORDER_NOT_CANCELLABLE: la orden no está en estado NEW; o CONCURRENT_REQUEST'),
+  }),
+});
+
 export function ordersRouter(controller: OrdersController, limiter: RequestHandler): Router {
   const router = Router();
   router.post('/orders', limiter, validate(createOrderSchemas), controller.create);
+  router.post(
+    '/orders/:orderId/cancellation',
+    limiter,
+    validate(cancelOrderSchemas),
+    controller.cancel,
+  );
   return router;
 }

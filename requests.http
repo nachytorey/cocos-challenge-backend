@@ -1,0 +1,277 @@
+# Colección de requests para la extensión REST Client de VS Code (humao.rest-client).
+# Con la API levantada (`npm run dev`) y la base cargada con database.sql.
+# Datos del seed: usuario 1 tiene órdenes; instrumento 47 (acción con precio), 54 (acción con
+# precio), 66 (ARS, moneda); orden 5 es una LIMIT en estado NEW; orden 2 está FILLED.
+
+@baseUrl = http://localhost:3000
+@userId = 1
+
+### ------------------------------------------------------------------ Portfolio
+
+### Portfolio del usuario 1: pesos disponibles/reservados, valor total y posiciones
+GET {{baseUrl}}/v1/users/{{userId}}/portfolio
+
+### Usuario inexistente -> 404 NOT_FOUND
+GET {{baseUrl}}/v1/users/999/portfolio
+
+### userId inválido -> 400 VALIDATION_FAILED
+GET {{baseUrl}}/v1/users/abc/portfolio
+
+### ------------------------------------------------------------------ Búsqueda de activos
+
+### Por ticker (sin distinguir mayúsculas)
+GET {{baseUrl}}/v1/instruments?q=pam
+
+### Por nombre
+GET {{baseUrl}}/v1/instruments?q=pampa
+
+### Paginada por cursor: copiá `page.nextCursor` de la respuesta en el parámetro `cursor`
+GET {{baseUrl}}/v1/instruments?q=s&limit=5
+
+###
+GET {{baseUrl}}/v1/instruments?q=s&limit=5&cursor=PEGAR_NEXT_CURSOR_ACA
+
+### Sin coincidencias -> data: []
+GET {{baseUrl}}/v1/instruments?q=zzzz
+
+### q vacío -> 400
+GET {{baseUrl}}/v1/instruments?q=
+
+### ------------------------------------------------------------------ Enviar órdenes
+# Cada envío necesita su propio Idempotency-Key. Repetir EXACTAMENTE el mismo request con la
+# misma clave devuelve la orden original (200) en vez de crear otra.
+
+### MARKET por cantidad -> 201 FILLED al último cierre
+POST {{baseUrl}}/v1/orders
+Content-Type: application/json
+Idempotency-Key: demo-market-qty-0001
+
+{
+  "userId": 1,
+  "instrumentId": 47,
+  "side": "BUY",
+  "type": "MARKET",
+  "quantity": 10,
+  "currency": "ARS"
+}
+
+### El mismo envío repetido (misma clave) -> 200 con la misma orden
+POST {{baseUrl}}/v1/orders
+Content-Type: application/json
+Idempotency-Key: demo-market-qty-0001
+
+{
+  "userId": 1,
+  "instrumentId": 47,
+  "side": "BUY",
+  "type": "MARKET",
+  "quantity": 10,
+  "currency": "ARS"
+}
+
+### La misma clave con otro body -> 422 IDEMPOTENCY_KEY_REUSED
+POST {{baseUrl}}/v1/orders
+Content-Type: application/json
+Idempotency-Key: demo-market-qty-0001
+
+{
+  "userId": 1,
+  "instrumentId": 47,
+  "side": "BUY",
+  "type": "MARKET",
+  "quantity": 11,
+  "currency": "ARS"
+}
+
+### LIMIT por monto en pesos -> 201 NEW, quantity = floor(5000 / 900) = 5
+POST {{baseUrl}}/v1/orders
+Content-Type: application/json
+Idempotency-Key: demo-limit-amount-0001
+
+{
+  "userId": 1,
+  "instrumentId": 47,
+  "side": "BUY",
+  "type": "LIMIT",
+  "amount": "5000.00",
+  "price": "900.00",
+  "currency": "ARS"
+}
+
+### MARKET por monto -> cantidad máxima de acciones enteras al último cierre
+POST {{baseUrl}}/v1/orders
+Content-Type: application/json
+Idempotency-Key: demo-market-amount-0001
+
+{
+  "userId": 1,
+  "instrumentId": 54,
+  "side": "BUY",
+  "type": "MARKET",
+  "amount": "2000.00",
+  "currency": "ARS"
+}
+
+### Venta MARKET dentro de la tenencia (el usuario 1 tiene 500 del instrumento 54) -> FILLED
+POST {{baseUrl}}/v1/orders
+Content-Type: application/json
+Idempotency-Key: demo-sell-ok-0001
+
+{
+  "userId": 1,
+  "instrumentId": 54,
+  "side": "SELL",
+  "type": "MARKET",
+  "quantity": 100,
+  "currency": "ARS"
+}
+
+### Venta por encima de la tenencia -> 201 REJECTED (se registra, no cambia saldos)
+POST {{baseUrl}}/v1/orders
+Content-Type: application/json
+Idempotency-Key: demo-sell-rejected-0001
+
+{
+  "userId": 1,
+  "instrumentId": 54,
+  "side": "SELL",
+  "type": "MARKET",
+  "quantity": 100000,
+  "currency": "ARS"
+}
+
+### Compra por encima de los pesos disponibles -> 201 REJECTED
+POST {{baseUrl}}/v1/orders
+Content-Type: application/json
+Idempotency-Key: demo-buy-rejected-0001
+
+{
+  "userId": 1,
+  "instrumentId": 47,
+  "side": "BUY",
+  "type": "MARKET",
+  "quantity": 10000,
+  "currency": "ARS"
+}
+
+### ------------------------------------------------------------------ Pedidos inválidos (no se registran)
+
+### LIMIT sin price -> 400 VALIDATION_FAILED
+POST {{baseUrl}}/v1/orders
+Content-Type: application/json
+Idempotency-Key: demo-invalid-limit-0001
+
+{
+  "userId": 1,
+  "instrumentId": 47,
+  "side": "BUY",
+  "type": "LIMIT",
+  "quantity": 1,
+  "currency": "ARS"
+}
+
+### quantity y amount juntos -> 400
+POST {{baseUrl}}/v1/orders
+Content-Type: application/json
+Idempotency-Key: demo-invalid-both-0001
+
+{
+  "userId": 1,
+  "instrumentId": 47,
+  "side": "BUY",
+  "type": "MARKET",
+  "quantity": 1,
+  "amount": "1000.00",
+  "currency": "ARS"
+}
+
+### Sin currency -> 400
+POST {{baseUrl}}/v1/orders
+Content-Type: application/json
+Idempotency-Key: demo-invalid-currency-0001
+
+{
+  "userId": 1,
+  "instrumentId": 47,
+  "side": "BUY",
+  "type": "MARKET",
+  "quantity": 1
+}
+
+### Monto que no alcanza para una acción -> 422 ZERO_QUANTITY
+POST {{baseUrl}}/v1/orders
+Content-Type: application/json
+Idempotency-Key: demo-zero-qty-0001
+
+{
+  "userId": 1,
+  "instrumentId": 47,
+  "side": "BUY",
+  "type": "MARKET",
+  "amount": "100.00",
+  "currency": "ARS"
+}
+
+### Instrumento de tipo MONEDA (66 = ARS) -> 400
+POST {{baseUrl}}/v1/orders
+Content-Type: application/json
+Idempotency-Key: demo-invalid-currency-instr-0001
+
+{
+  "userId": 1,
+  "instrumentId": 66,
+  "side": "BUY",
+  "type": "MARKET",
+  "quantity": 1,
+  "currency": "ARS"
+}
+
+### Sin el header Idempotency-Key -> 400
+POST {{baseUrl}}/v1/orders
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "instrumentId": 47,
+  "side": "BUY",
+  "type": "MARKET",
+  "quantity": 1,
+  "currency": "ARS"
+}
+
+### ------------------------------------------------------------------ Cancelar una orden
+
+### Cancelar la orden 5 (LIMIT en estado NEW) del usuario 1 -> 200 CANCELLED
+POST {{baseUrl}}/v1/orders/5/cancellation
+Content-Type: application/json
+
+{ "userId": 1 }
+
+### Repetir la cancelación -> 409 ORDER_NOT_CANCELLABLE
+POST {{baseUrl}}/v1/orders/5/cancellation
+Content-Type: application/json
+
+{ "userId": 1 }
+
+### Cancelar una orden FILLED (la 2) -> 409 ORDER_NOT_CANCELLABLE
+POST {{baseUrl}}/v1/orders/2/cancellation
+Content-Type: application/json
+
+{ "userId": 1 }
+
+### Cancelar la orden de otro usuario -> 404
+POST {{baseUrl}}/v1/orders/5/cancellation
+Content-Type: application/json
+
+{ "userId": 2 }
+
+### ------------------------------------------------------------------ Operación
+
+### Liveness
+GET {{baseUrl}}/health/live
+
+### Readiness (base de datos accesible)
+GET {{baseUrl}}/health/ready
+
+### Documentación interactiva: {{baseUrl}}/docs/   |   OpenAPI: {{baseUrl}}/docs-json
+GET {{baseUrl}}/docs-json

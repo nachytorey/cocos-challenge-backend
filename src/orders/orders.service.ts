@@ -7,6 +7,7 @@ import type { MarketDataRepository } from '../market-data/market-data.repository
 import {
   IdempotencyKeyReusedError,
   NotFoundError,
+  OrderNotCancellableError,
   ValidationFailedError,
   ZeroQuantityError,
 } from '../shared/errors';
@@ -119,6 +120,27 @@ export class OrdersService {
       'order.created',
     );
     return result;
+  }
+
+  /**
+   * Cancela una orden NEW del usuario (FR-011). Toma el mismo lock que el envío, así una
+   * cancelación y una compra simultáneas nunca ven un saldo inconsistente.
+   */
+  async cancel(orderId: number, userId: number): Promise<OrderResponseBody> {
+    const cancelled = await this.deps.transactions.transaction(async (manager) => {
+      await this.lockUser(manager, userId);
+      const order = await this.deps.orders.findByIdForUser(manager, orderId, userId);
+      if (!order) throw new NotFoundError(`Order ${orderId} not found`);
+      if (order.status !== 'NEW') {
+        throw new OrderNotCancellableError(
+          `Order ${orderId} is ${order.status}; only NEW orders can be cancelled`,
+        );
+      }
+      await this.deps.orders.updateStatus(manager, orderId, 'CANCELLED');
+      return toOrderResponse({ ...order, status: 'CANCELLED' });
+    });
+    this.deps.logger.info(pickLogFields(cancelled), 'order.cancelled');
+    return cancelled;
   }
 
   private async lockUser(manager: EntityManager, userId: number): Promise<void> {

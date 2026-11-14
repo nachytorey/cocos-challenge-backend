@@ -3,6 +3,7 @@ import type { HoldingOrder } from '../holdings/compute-holdings';
 import {
   IdempotencyKeyReusedError,
   NotFoundError,
+  OrderNotCancellableError,
   ValidationFailedError,
   ZeroQuantityError,
 } from '../shared/errors';
@@ -174,6 +175,48 @@ describe('OrdersService.create', () => {
       orderId: 100,
       responseStatus: 201,
     });
+  });
+});
+
+describe('OrdersService.cancel', () => {
+  const pending = (status: Order['status']): Order => ({
+    id: 5,
+    userId: 1,
+    instrumentId: 45,
+    size: 50,
+    price: '710.00',
+    type: 'LIMIT',
+    side: 'BUY',
+    status,
+    datetime: new Date('2023-07-12T15:14:20Z'),
+  });
+
+  it('una orden NEW pasa a CANCELLED', async () => {
+    const { service, deps } = build({ order: pending('NEW') });
+    const result = await service.cancel(5, 1);
+    expect(result).toMatchObject({ id: 5, status: 'CANCELLED', quantity: 50 });
+    expect(deps.orders.updateStatus).toHaveBeenCalledWith(manager, 5, 'CANCELLED');
+    expect(deps.users.lockForUpdate).toHaveBeenCalledWith(manager, 1);
+  });
+
+  it.each(['FILLED', 'REJECTED', 'CANCELLED'] as const)(
+    'una orden %s → OrderNotCancellableError sin modificarla',
+    async (status) => {
+      const { service, deps } = build({ order: pending(status) });
+      await expect(service.cancel(5, 1)).rejects.toThrow(OrderNotCancellableError);
+      expect(deps.orders.updateStatus).not.toHaveBeenCalled();
+    },
+  );
+
+  it('orden inexistente o de otro usuario → NotFoundError', async () => {
+    const { service, deps } = build({ order: null });
+    await expect(service.cancel(5, 2)).rejects.toThrow(NotFoundError);
+    expect(deps.orders.findByIdForUser).toHaveBeenCalledWith(manager, 5, 2);
+  });
+
+  it('usuario inexistente → NotFoundError', async () => {
+    const { service } = build({ userExists: false, order: pending('NEW') });
+    await expect(service.cancel(5, 999)).rejects.toThrow(NotFoundError);
   });
 });
 

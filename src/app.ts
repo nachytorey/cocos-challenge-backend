@@ -8,12 +8,19 @@ import type { DataSource } from 'typeorm';
 import type { Config } from './config';
 import { healthRouter } from './health/health.routes';
 import { HoldingsRepository } from './holdings/holdings.repository';
+import { InstrumentsController } from './instruments/instruments.controller';
+import { InstrumentsRepository } from './instruments/instruments.repository';
+import { instrumentsRouter } from './instruments/instruments.routes';
+import { InstrumentsService } from './instruments/instruments.service';
 import { MarketDataRepository } from './market-data/market-data.repository';
 import { orderTypeStrategies } from './orders/order-type.strategy';
 import { OrdersController } from './orders/orders.controller';
 import { OrdersRepository } from './orders/orders.repository';
 import { ordersRouter } from './orders/orders.routes';
 import { OrdersService } from './orders/orders.service';
+import { PortfolioController } from './portfolio/portfolio.controller';
+import { portfolioRouter } from './portfolio/portfolio.routes';
+import { PortfolioService } from './portfolio/portfolio.service';
 import { NotFoundError, RateLimitedError } from './shared/errors';
 import { errorHandler } from './shared/http/error-handler';
 import { openApiRouter } from './shared/http/openapi';
@@ -68,6 +75,7 @@ function v1Router({ config, dataSource, logger }: AppDeps): Router {
   const marketData = new MarketDataRepository(dataSource);
   const holdings = new HoldingsRepository();
   const orders = new OrdersRepository();
+  const instruments = new InstrumentsRepository(dataSource);
 
   const ordersService = new OrdersService({
     transactions: dataSource,
@@ -79,7 +87,19 @@ function v1Router({ config, dataSource, logger }: AppDeps): Router {
     logger,
   });
 
+  const portfolioService = new PortfolioService({
+    manager: dataSource.manager,
+    users,
+    holdings,
+    marketData,
+    instruments,
+  });
+
+  const instrumentsService = new InstrumentsService({ instruments, marketData });
+
   const router = Router();
+  router.use(portfolioRouter(new PortfolioController(portfolioService)));
+  router.use(instrumentsRouter(new InstrumentsController(instrumentsService)));
   router.use(
     ordersRouter(
       new OrdersController(ordersService),
