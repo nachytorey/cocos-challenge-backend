@@ -5,4 +5,4 @@ specs
 .specify
 .claude
 package-lock.json
-database.sql
+.challenge

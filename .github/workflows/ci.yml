@@ -59,7 +59,7 @@ jobs:
 
       - name: Preparar las bases de datos
         run: |
-          psql -d cocos -v ON_ERROR_STOP=1 -f database.sql
+          psql -d cocos -v ON_ERROR_STOP=1 -f .challenge/database.sql
           psql -d cocos -v ON_ERROR_STOP=1 -c 'CREATE DATABASE cocos_test'
           npm run migration:run
 

@@ -2,7 +2,8 @@
 
 API REST para consultar el portfolio de un usuario, buscar activos y enviar órdenes de compra o
 venta al mercado (MARKET y LIMIT). Express 5 + TypeScript + TypeORM sobre PostgreSQL, como pide
-[el enunciado](fullstack-challenge.md). Los datos iniciales están en [database.sql](database.sql).
+[el enunciado](.challenge/fullstack-challenge.md). Los datos iniciales están en
+[.challenge/database.sql](.challenge/database.sql).
 
 - **Documentación interactiva:** `http://localhost:3000/docs/` (Swagger UI) y `/docs-json` (OpenAPI 3.1).
 - **Colección de requests:** [requests.http](requests.http) (extensión REST Client de VS Code).
@@ -32,7 +33,7 @@ con un `code` estable.
 
 ```bash
 cp .env.example .env                 # configuración local
-docker compose up -d postgres        # crea la base `cocos` (con database.sql) y `cocos_test`
+docker compose up -d postgres        # crea la base `cocos` (con .challenge/database.sql) y `cocos_test`
 npm ci
 npm run migration:run                # tabla idempotency_keys (la baseline es un no-op)
 npm run dev                          # http://localhost:3000
@@ -43,7 +44,7 @@ Si tu Docker no tiene el plugin de Compose, este comando es equivalente:
 ```bash
 docker run -d --name cocos-postgres -e POSTGRES_USER=cocos -e POSTGRES_PASSWORD=cocos \
   -e POSTGRES_DB=cocos -p 5432:5432 -v cocos-pgdata:/var/lib/postgresql/data \
-  -v "$PWD/database.sql:/docker-entrypoint-initdb.d/01-database.sql:ro" \
+  -v "$PWD/.challenge/database.sql:/docker-entrypoint-initdb.d/01-database.sql:ro" \
   -v "$PWD/docker/init-test-db.sql:/docker-entrypoint-initdb.d/02-init-test-db.sql:ro" \
   postgres:16.6
 ```
@@ -91,7 +92,7 @@ npm run test:functional   # HTTP contra la base cocos_test
 npm run test:load         # smoke de latencia con k6 (la API tiene que estar levantada)
 ```
 
-Los tests funcionales cargan los datos de `database.sql` en `cocos_test` y verifican, entre otras
+Los tests funcionales cargan los datos de `.challenge/database.sql` en `cocos_test` y verifican, entre otras
 cosas, el portfolio del usuario 1 al centavo, la idempotencia, la cancelación y la concurrencia.
 **El test funcional del envío de órdenes que pide el enunciado** es
 [test/orders.functional.spec.ts](test/orders.functional.spec.ts).

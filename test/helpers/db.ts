@@ -46,9 +46,12 @@ export async function resetDb(ds: DataSource): Promise<void> {
   await ds.query(`TRUNCATE ${tables} RESTART IDENTITY CASCADE`);
 }
 
+/** El enunciado del challenge y sus datos iniciales viven en `.challenge/`. */
+export const CHALLENGE_SEED_PATH = join(__dirname, '..', '..', '.challenge', 'database.sql');
+
 /** Ejecuta los INSERT de database.sql (el esquema ya lo crearon las migraciones). */
 export async function loadChallengeSeed(ds: DataSource): Promise<void> {
-  const sql = readFileSync(join(__dirname, '..', '..', 'database.sql'), 'utf8');
+  const sql = readFileSync(CHALLENGE_SEED_PATH, 'utf8');
   const inserts = sql.match(/INSERT INTO[\s\S]*?;/g) ?? [];
   for (const statement of inserts) {
     await ds.query(statement);

@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Backend del challenge de Cocos: API REST de portfolio, búsqueda de activos y envío de órdenes. Express 5 + TypeScript + PostgreSQL (TypeORM), como pide el enunciado (`fullstack-challenge.md`). Datos iniciales en `database.sql`.
+Backend del challenge de Cocos: API REST de portfolio, búsqueda de activos y envío de órdenes. Express 5 + TypeScript + PostgreSQL (TypeORM), como pide el enunciado (`.challenge/fullstack-challenge.md`). Datos iniciales en `.challenge/database.sql`.
 Sin frontend: el enunciado solo pide la API. Los clientes son `requests.http` (REST Client de VS Code) y Swagger UI (`/docs`, `/docs-json`).
 
 ## Reglas

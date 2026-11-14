@@ -10,7 +10,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       # Se ejecutan solo al crear el volumen por primera vez, en orden alfabético.
-      - ./database.sql:/docker-entrypoint-initdb.d/01-database.sql:ro
+      - ./.challenge/database.sql:/docker-entrypoint-initdb.d/01-database.sql:ro
       - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/02-init-test-db.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U cocos -d cocos']
