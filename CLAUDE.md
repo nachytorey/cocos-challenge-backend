@@ -72,3 +72,6 @@ Siempre correr `/speckit-analyze` antes de `/speckit-implement`. Specs, plan y t
 - `design-patterns`: elegir, nombrar y justificar un patrón de diseño por feature.
 - `concurrency-and-load`: locking, escala (miles de RPS) y tests de stress con k6.
 - `git-hooks-husky`: Husky + lint-staged (pre-commit lint/prettier/typecheck, pre-push tests) y su relación con el CI.
+- `consigna-first`: todo apunta a una línea del enunciado; el contrato nunca es más estricto que lo pedido; ante dos lecturas gana la literal.
+- `query-plan-check`: índice de entrada en consultas calientes por FK, `EXPLAIN` con 1M de filas en `BEGIN`/`ROLLBACK` y test funcional con volumen.
+- `challenge-scorecard`: re-evaluar la API contra la consigna con la rúbrica fija de `docs/analisis-consigna.md`.

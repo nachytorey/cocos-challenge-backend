@@ -30,6 +30,8 @@ app.use(globalLimiter);
 
 ## Límites más estrictos en rutas sensibles
 
+**Condicional.** El limiter global es la base. Un segundo limiter por ruta se agrega solo si el spec declara una necesidad de abuso (login, verificación de códigos, una operación con costo real). Sin ese requisito, un solo limiter global alcanza (ver `simplicity-first` y `consigna-first`).
+
 ```ts
 const ordersLimiter = rateLimit({ windowMs: 60_000, limit: 30 });
 router.post('/orders', ordersLimiter, validate(...), controller.create);

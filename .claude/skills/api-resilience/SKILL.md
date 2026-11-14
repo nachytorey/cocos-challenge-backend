@@ -10,9 +10,10 @@ Implementa los principios VI y VIII de la constitution.
 ## Endpoints seguros para reintentar (idempotencia)
 
 - `GET`, `PUT`, `DELETE`: idempotentes por diseño; repetirlos no cambia el resultado.
-- `POST` cuya repetición causa daño (mover dinero, crear una orden, enviar una notificación): `Idempotency-Key` **obligatoria**. La regla y la implementación viven en un solo lugar: principio IX y skill `payments-saga-outbox`.
+- `POST` cuya repetición causa daño (mover dinero, crear una orden, enviar una notificación): soportar `Idempotency-Key`. La regla y la implementación viven en un solo lugar: principio IX y skill `payments-saga-outbox`.
+- **La clave es opcional, salvo que el spec la exija.** Con clave: se guarda y los reintentos devuelven el resultado original. Sin clave: el flujo sigue normalmente, sin protección contra repeticiones. Un cliente que manda solo lo que describe el enunciado no puede recibir un 400 por faltar un header que el enunciado no menciona (ver `consigna-first`).
 - `POST` sin efecto dañino al repetirse: no necesita clave.
-- Documentar el header en OpenAPI como parámetro requerido de la ruta (schema zod de headers registrado en el registry).
+- Documentar el header en OpenAPI como parámetro **opcional** de la ruta (o requerido solo si el spec lo exige); schema zod de headers registrado en el registry.
 
 ## Llamadas a servicios externos
 

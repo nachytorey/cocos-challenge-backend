@@ -16,12 +16,15 @@ Implementa el principio V. **Empezar siempre por lo más simple que cumple el sp
 5. ¿Hay cache, cola, outbox, saga, CQRS, réplica o servicio extra **sin una carga o consistencia declarada** que lo exija?
 6. ¿Hay un patrón de diseño aplicado sin un problema concreto que resuelva?
 7. ¿Hay configuración, flags u opciones que nadie usa "por si acaso"?
+8. ¿Hay un middleware o mecanismo de borde (HTTPS obligatorio, chequeo de `Origin`, un segundo rate limiter, paginación en un catálogo chico) que **ninguna línea del enunciado ni requisito de despliegue** usa? Si no hay cookies ni sesión, el chequeo de `Origin` no protege nada.
+9. ¿Una misma regla de validación está escrita en dos capas (schema y dominio)? Una sola.
+10. ¿Hay un documento de contrato escrito a mano **y** uno generado del código?
 
 ## Disparadores para crecer (registrar en el plan)
 
 | Mecanismo | Se introduce cuando... |
 |---|---|
-| Índice | `EXPLAIN ANALYZE` muestra scan costoso en una query real |
+| Índice | **Excepción: no espera medición.** Una consulta caliente que filtra por una FK lleva su índice desde el día uno (ver `query-plan-check`); el `EXPLAIN` con volumen sirve para elegir su forma, no para decidir si existe |
 | Cache | Medición muestra lectura caliente que no cumple el p95 objetivo |
 | Cola / worker | Trabajo lento que no puede ir en el request, o requisito explícito de asincronía |
 | Outbox / Saga | El spec exige consistencia entre varios servicios o sistemas externos |
@@ -32,7 +35,9 @@ Implementa el principio V. **Empezar siempre por lo más simple que cumple el sp
 
 ## Qué NO es "complejidad opcional"
 
-Seguridad (cookie HttpOnly, guard, validación, rate limit), test-first, idempotencia en pagos y Swagger son la base mínima, no se recortan por simplicidad.
+Validación en el borde, rate limit global, `helmet`, límite de body, timeouts, test-first y Swagger son la base mínima: no se recortan por simplicidad.
+
+Son **condicionales** (solo con su disparador en el spec, ver `consigna-first`): cookie HttpOnly y guard (si hay sesión), chequeo de `Origin` (si hay cookies), HTTPS obligatorio y HSTS (si el spec habla de despliegue), rate limit estricto por ruta (si el spec declara abuso o una operación sensible) e idempotencia obligatoria (si el spec la exige; si no, opcional).
 
 ## Al revisar un plan
 

@@ -11,7 +11,7 @@ Reglas derivadas del principio IV de la constitution.
 - Revisar a mano cada migración generada antes de commitearla; debe tener `down` funcional.
 - Montos y cantidades: columna `numeric(precision, scale)` explícita. En TS manejarlos como string o con una librería decimal; nunca `float`/`number` para dinero.
 - Operaciones que tocan varias filas o tablas van dentro de una transacción (`DataSource.transaction` o `QueryRunner`).
-- Índices explícitos para columnas usadas en filtros, joins y ordenamientos frecuentes.
+- Índices explícitos para columnas usadas en filtros, joins y ordenamientos frecuentes. PostgreSQL **no** indexa las FK solo: `userid` e `instrumentid` en tablas que crecen llevan su índice en la migración de la misma feature. Forma y medición con volumen: skill `query-plan-check`.
 - Las entidades no se exponen por la API; mapear a DTOs.
 - Acceso a datos solo desde services vía repositorios inyectados.
 - Evitar N+1: usar `relations`/`QueryBuilder` con joins deliberados.

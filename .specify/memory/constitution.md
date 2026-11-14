@@ -77,10 +77,17 @@ be removed or justified in the plan's complexity-tracking section:
   TypeORM or PostgreSQL?
 - Is a scaling or consistency mechanism (cache, queue, outbox, saga, CQRS, read replica,
   extra service) present without a stated load or consistency requirement that needs it?
+- Is there an edge or process mechanism (mandatory HTTPS, an `Origin` check without
+  cookies, a second rate limiter, pagination of a tiny catalog) that no line of the spec and
+  no stated deployment requirement uses?
+- Is the same validation rule written in two layers, or the same contract in two documents
+  (one handwritten and one generated)?
 
 Growth triggers: a mechanism may be introduced only when the spec states the need or a
 measurement shows it (e.g. a load test missing its p95 target, an observed race, a
-requirement spanning services). The plan MUST record the trigger. BASELINE principles are
+requirement spanning services). The one exception is the index of Principle XI: a hot query
+that filters by a foreign key gets its index in the same feature, without waiting for a
+measurement. The plan MUST record the trigger. BASELINE principles are
 minimum requirements, not optional complexity. When two designs satisfy the spec, the one
 with fewer moving parts MUST be chosen.
 Rationale: a small codebase is easier to review, test and change; growth is cheap when it
@@ -136,11 +143,13 @@ outage.
 ### IX. Idempotent Non-Repeatable Operations (CONDITIONAL, NON-NEGOTIABLE when triggered)
 Trigger: an operation whose repetition would cause harm, such as moving money, placing an
 order, creating a charge or refund, sending a notification, or any other effect that must
-happen exactly once. Such an operation MUST require an `Idempotency-Key`, persist the key
-with the request fingerprint and the final result under a unique constraint, return the
-stored result on replays, and reject a reused key whose payload differs (`422`). A replay
-while the first request is in progress MUST return `409`. Message handlers for such
-operations MUST deduplicate by message id.
+happen exactly once. Such an operation MUST support an `Idempotency-Key`; the key is
+**optional unless the spec requires it** (Principle XVIII), so a request without it
+proceeds without replay protection instead of failing. When the key is present, the
+operation MUST persist it with the request fingerprint and the final result under a unique
+constraint, return the stored result on replays, and reject a reused key whose payload
+differs (`422`). A replay while the first request is in progress MUST return `409`. Message
+handlers for such operations MUST deduplicate by message id.
 Rationale: retries, timeouts and redeliveries are normal; a duplicated effect is not
 acceptable.
 
@@ -166,17 +175,24 @@ state has a stated concurrency strategy (atomic SQL update, optimistic locking w
 version column, pessimistic `SELECT ... FOR UPDATE`, advisory locks, or `SKIP LOCKED` for
 queues), choosing the simplest one that is correct. Every plan MUST state the expected load;
 when the spec gives none, the plan MUST record the assumption it used.
+Every hot-path query that filters or joins by a foreign key (it runs on each request of a
+main read endpoint, or inside a transaction that holds a lock, over a table that grows with
+use) MUST have a supporting index, created by a migration in the same feature; PostgreSQL
+does not index foreign keys on its own. The plan MUST record, per hot query, the index and
+its measured plan with volume (skill `query-plan-check`).
 Features that touch shared mutable state MUST ship with concurrency tests that exercise the
-race. Features with a stated throughput or latency requirement MUST ship with stress/load
-tests (e.g. `k6`), and the target and results (p95/p99 latency, error rate, RPS) MUST be
-recorded in the plan or PR.
+race. Features that read or write a table that grows with use MUST ship with one functional
+test with volume. Features with a stated throughput or latency requirement MUST ship with
+stress/load tests (e.g. `k6`), and the target and results (p95/p99 latency, error rate,
+RPS) MUST be recorded in the plan or PR.
 Rationale: statelessness, pagination and correct locking are cheap up front and expensive to
 retrofit; caches and queues are the opposite.
 
-### XII. Rate Limiting & Abuse Protection (BASELINE)
-Every API MUST have a global rate limit (`express-rate-limit`) applied by default, with
-stricter limits on sensitive routes (login, token refresh, non-repeatable operations,
-password or code verification). In a multi-instance deployment the limiter MUST use a shared
+### XII. Rate Limiting & Abuse Protection (BASELINE for the global limit; CONDITIONAL for per-route limits)
+Every API MUST have a global rate limit (`express-rate-limit`) applied by default. Stricter
+limits on sensitive routes (login, token refresh, non-repeatable operations, password or
+code verification) apply only when the spec states an abuse concern for that route; without
+it, the global limiter is enough. In a multi-instance deployment the limiter MUST use a shared
 store (e.g. Redis); a single-instance deployment MAY use the in-memory store. Exceeding a
 limit MUST return `429` with a `Retry-After` header, documented in OpenAPI. Limits MUST be
 configurable through environment variables, and a route MUST NOT opt out of the limiter
@@ -219,11 +235,14 @@ branches). A limit may be raised for a specific function only with an inline jus
 Rationale: rules that are not enforced automatically decay; tooling keeps the baseline
 without relying on memory.
 
-### XVI. Application Security (BASELINE)
-State-changing operations MUST NOT be exposed through `GET`. State-changing requests MUST
-be rejected when their `Origin` header is present and is not an allowed origin; when the API
-uses cookie authentication with `SameSite` relaxed to `Lax` or `None`, an anti-CSRF token
-MUST also be required. When the API stores credentials, passwords MUST be stored only as
+### XVI. Application Security (BASELINE; the `Origin` check and HTTPS enforcement are CONDITIONAL)
+State-changing operations MUST NOT be exposed through `GET`. When the API authenticates with
+cookies, state-changing requests MUST be rejected when their `Origin` header is present and
+is not an allowed origin, and with `SameSite` relaxed to `Lax` or `None` an anti-CSRF token
+MUST also be required; an API without cookies or sessions MUST NOT carry this check, since
+there is no ambient credential to protect. Mandatory HTTPS (`403 HTTPS_REQUIRED`) and HSTS
+apply only when the spec or plan states a deployment requirement; otherwise TLS is the
+proxy's concern. When the API stores credentials, passwords MUST be stored only as
 salted hashes produced by `argon2id`, never encrypted or logged, and login MUST NOT reveal
 whether the account exists. When the API has authorization, it MUST follow one explicit
 model (roles or permissions) declared in the plan, with least privilege as the default.
@@ -244,6 +263,20 @@ MUST be logged and MUST terminate the process so the orchestrator restarts it in
 state.
 Rationale: deploys and failures are routine; a service that stops, times out and restarts
 predictably does not lose or corrupt work when they happen.
+
+### XVIII. Spec-Traceable Scope (BASELINE)
+Every endpoint, field, header, middleware, table and environment variable MUST trace to a
+line of the spec, the project brief or a stated deployment requirement; "it is good
+practice" is not a requirement, and an untraceable piece MUST be removed or recorded in the
+plan's complexity-tracking section. The API contract MUST NOT be stricter than the spec: a
+client that sends exactly what the brief describes MUST receive a success response, so a
+header or field the brief does not mention is optional (with a default where one makes
+sense), and unknown fields are rejected only when the spec defines a closed contract. When a
+rule admits two readings, the field the brief names MUST return the literal value, the
+project's own interpretation MUST be exposed as an additional, explicitly named field, and
+the decision MUST be written in the README. A validation rule lives in one layer only.
+Rationale: an evaluator or client who follows the brief to the letter sees it work, and
+every piece that has no requirement behind it is cost without a reason.
 
 ## Technology Stack & Constraints
 
@@ -304,4 +337,11 @@ principle removals or redefinitions require a MAJOR version bump, new or materia
 expanded principles a MINOR bump, and clarifications a PATCH bump. Every plan and review
 MUST verify compliance with these principles, and unjustified complexity MUST be rejected.
 
-**Version**: 3.0.1 | **Ratified**: 2026-11-13 | **Last Amended**: 2026-11-13
+**Version**: 4.0.0 | **Ratified**: 2026-11-13 | **Last Amended**: 2026-11-14
+
+Amendment 4.0.0 (MAJOR): after the challenge evaluation (`docs/analisis-consigna.md`, 82/100),
+Principles IX, XII and XVI are redefined from always-on to conditional (optional
+`Idempotency-Key`, per-route rate limits, `Origin` check and mandatory HTTPS), Principle V
+gains checks for untraceable edge mechanisms and duplicated rules, Principle XI requires
+indexes on hot foreign-key queries and a functional test with volume, and Principle XVIII
+(Spec-Traceable Scope) is added.

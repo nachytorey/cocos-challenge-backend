@@ -10,7 +10,8 @@ Implementa el principio XVI. Complementa `auth-cookies` (token) y `rate-limiting
 ## CSRF
 
 - Ningún `GET` cambia estado.
-- En requests que cambian estado (`POST/PUT/PATCH/DELETE`), verificar que el header `Origin` esté en la lista de orígenes permitidos (`CORS_ORIGINS`); si no, `403`.
+- **Condicional: solo si la API autentica con cookies.** CSRF abusa de credenciales que el navegador manda solo; sin cookies ni sesión no hay nada que proteger y el chequeo es código sin requisito (ver `consigna-first`).
+- Con cookies, en requests que cambian estado (`POST/PUT/PATCH/DELETE`), verificar que el header `Origin` esté en la lista de orígenes permitidos (`CORS_ORIGINS`); si no, `403`.
 - Con `SameSite=Strict` eso alcanza. Si el plan relaja a `Lax` o `None`, agregar además token anti-CSRF (double-submit: cookie no HttpOnly + header `X-CSRF-Token` comparados en un guard).
 
 ## Credenciales
@@ -31,6 +32,7 @@ Implementa el principio XVI. Complementa `auth-cookies` (token) y `rate-limiting
 
 - Tamaño máximo de body (`express.json({ limit: '100kb' })` o el valor que defina el plan); subidas de archivos con límite propio y validación de tipo.
 - `helmet()` activo; desactivar `X-Powered-By`.
+- HTTPS obligatorio (`403 HTTPS_REQUIRED`) y HSTS: **condicional**, solo si el spec o el plan declaran un requisito de despliegue. Normalmente lo resuelve el proxy o el balanceador, no la app.
 - Swagger no expuesto en producción (o protegido).
 
 ## Dependencias y secretos
@@ -46,7 +48,7 @@ Implementa el principio XVI. Complementa `auth-cookies` (token) y `rate-limiting
 
 ## Tests
 
-- e2e: request que cambia estado con `Origin` no permitido → `403`.
+- e2e (solo con cookies): request que cambia estado con `Origin` no permitido → `403`.
 - e2e: login con usuario inexistente y con contraseña incorrecta devuelven la misma respuesta.
 - e2e: usuario A no puede leer ni modificar un recurso de usuario B.
 - e2e: body mayor al límite → `413`.

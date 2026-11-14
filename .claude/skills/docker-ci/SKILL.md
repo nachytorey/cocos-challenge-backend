@@ -36,6 +36,14 @@ Orden de jobs, cada uno bloquea el merge si falla:
 
 Debe explicar: requisitos, `.env.example`, cómo levantar con compose, migraciones, seeds, tests, tests de carga y la URL de Swagger.
 
+## Qué va en la entrega (challenge o proyecto evaluado por terceros)
+
+Quien abre el repo tiene que ver **el producto**, no el proceso con el que se hizo. Regla de proporción: el material de proceso (skills, constitution, specs, plan, tasks) no debe superar al código de producción.
+
+- Va en la raíz y visible: código, tests, `README.md` con decisiones y suposiciones, `.env.example`, colección de requests, `docker-compose.yml`.
+- Se resume en una sola carpeta (p. ej. `docs/`) o queda fuera de la entrega: skills de agente, constitution, `tasks.md`, checklists y research.
+- El README enlaza solo lo que un lector necesita (la decisión y su motivo), no el historial del proceso.
+
 ## Reglas
 
 - Versiones fijadas (imágenes y dependencias); nada de `latest`.
