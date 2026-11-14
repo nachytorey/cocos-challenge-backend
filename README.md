@@ -110,6 +110,22 @@ Esta medición se hizo con un script de Node equivalente, porque `k6` no estaba 
 oficial es [test/load/portfolio-search.k6.js](test/load/portfolio-search.k6.js) y falla si el p95
 supera 1 s. Es una medición de humo con 4 usuarios y 66 instrumentos, no una prueba de capacidad.
 
+### Hooks de Git (Husky)
+
+`npm ci` (o `npm install`) los instala solo, con el script `prepare`: no hay que hacer nada más.
+
+| Hook         | Qué corre                                                                                                                              |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `pre-commit` | `lint-staged` sobre lo que está preparado para commitear (ESLint con `--fix` y sin warnings, y Prettier) y después `npm run typecheck` |
+| `pre-push`   | `npm run check:cycles` y `npm test` (unit tests con el umbral de cobertura)                                                            |
+
+Son un filtro rápido y local. Los tests funcionales y la auditoría de dependencias no corren acá,
+porque necesitan la base de datos o la red: los corre el CI.
+
+Para saltearlos de forma excepcional: `git commit --no-verify`, `git push --no-verify` o
+`HUSKY=0 git commit ...`. Eso no evita la verificación: el CI
+([.github/workflows/ci.yml](.github/workflows/ci.yml)) corre todas las compuertas y es la obligatoria.
+
 ## Suposiciones y decisiones de diseño
 
 Detalle completo en [spec.md](specs/001-portfolio-orders-api/spec.md) y
