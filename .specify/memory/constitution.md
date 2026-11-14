@@ -1,20 +1,3 @@
-<!--
-Sync Impact Report (temporary; remove before commit)
-- Version change: 2.1.0 → 3.0.1 (3.0.0 MAJOR: Express replaces NestJS; 3.0.1 PATCH: no
-  frontend in scope, Principle VI renamed "API Contract")
-- Reason: the challenge statement requires Express.js + TypeORM; NestJS is replaced.
-- Redefined principles: II (Express layered architecture with a composition root instead of
-  NestJS modules/DI), III (zod validation middleware instead of ValidationPipe; access
-  control becomes conditional on authentication), XIV (Express error middleware instead of
-  exception filters).
-- Modified: VI (OpenAPI generated from zod schemas), VII and XII (Express tooling),
-  Technology Stack (Express 5, zod, zod-to-openapi, swagger-ui-express, express-rate-limit,
-  pino).
-- Removed: NestJS-specific mechanisms (modules, decorators, APP_GUARD, ValidationPipe).
-- Templates: no template changes required; skills nestjs-conventions and nestjs-testing
-  replaced by express-conventions and testing-conventions.
-- Deferred TODOs: none.
--->
 # Cocos Challenge Backend Constitution
 
 ## Applicability

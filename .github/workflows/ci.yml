@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16.6
+        env:
+          POSTGRES_USER: cocos
+          POSTGRES_PASSWORD: cocos
+          POSTGRES_DB: cocos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cocos -d cocos"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+    env:
+      PGHOST: localhost
+      PGUSER: cocos
+      PGPASSWORD: cocos
+      DATABASE_URL: postgres://cocos:cocos@localhost:5432/cocos
+      DATABASE_URL_TEST: postgres://cocos:cocos@localhost:5432/cocos_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Auditoría de dependencias (alta o crítica)
+        run: npm audit --audit-level=high
+
+      - name: Lint, tipos y ciclos
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run check:cycles
+
+      - name: Tests unitarios (con umbral de cobertura)
+        run: npm test
+
+      - name: Preparar las bases de datos
+        run: |
+          psql -d cocos -v ON_ERROR_STOP=1 -f database.sql
+          psql -d cocos -v ON_ERROR_STOP=1 -c 'CREATE DATABASE cocos_test'
+          npm run migration:run
+
+      - name: Tests funcionales HTTP
+        run: npm run test:functional
+
+      - name: Build
+        run: npm run build
+
+      - uses: grafana/setup-k6-action@v1
+
+      - name: Smoke de latencia (k6, SC-005)
+        run: |
+          # El rate limit se sube solo para esta medición; se prueba aparte en los tests funcionales.
+          RATE_LIMIT_MAX=100000 PORT=3000 node dist/server.js &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/health/ready && break
+            sleep 1
+          done
+          curl -sf http://localhost:3000/health/ready
+          BASE_URL=http://localhost:3000 npm run test:load
