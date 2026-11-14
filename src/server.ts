@@ -32,6 +32,15 @@ export function startServer({
   lifecycle,
 }: ServerDeps): RunningServer {
   const server = app.listen(config.port);
+  // Fallar rápido y con un mensaje claro si no se puede escuchar (p. ej. puerto ocupado).
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    const message =
+      err.code === 'EADDRINUSE'
+        ? `Port ${config.port} is already in use; set PORT to a free port`
+        : `Cannot listen on port ${config.port}`;
+    logger.fatal({ err, port: config.port }, message);
+    process.exit(1);
+  });
   server.requestTimeout = config.requestTimeoutMs + 1000;
   server.headersTimeout = Math.min(config.requestTimeoutMs, 60_000);
 

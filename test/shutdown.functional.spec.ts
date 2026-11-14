@@ -1,5 +1,5 @@
 import { request as httpRequest } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import { createServer, type AddressInfo } from 'node:net';
 import express from 'express';
 import request from 'supertest';
 import { startServer } from '../src/server';
@@ -18,6 +18,40 @@ function get(port: number, path: string): Promise<number> {
     req.end();
   });
 }
+
+describe('arranque con el puerto ocupado', () => {
+  it('loguea un error claro con el puerto y termina el proceso con código 1', async () => {
+    const blocker = createServer();
+    await new Promise<void>((resolve) => blocker.listen(0, resolve));
+    const { port } = blocker.address() as AddressInfo;
+
+    const config = testConfig({ port });
+    const logger = createLogger({ level: 'silent' });
+    const fatal = jest.spyOn(logger, 'fatal');
+    const exited = new Promise<number | undefined>((resolve) => {
+      jest.spyOn(process, 'exit').mockImplementation((code) => {
+        resolve(typeof code === 'number' ? code : undefined);
+        return undefined as never;
+      });
+    });
+
+    startServer({
+      app: express(),
+      config,
+      dataSource: createDataSource(config),
+      logger,
+      lifecycle: createLifecycle(),
+    });
+
+    await expect(exited).resolves.toBe(1);
+    expect(fatal).toHaveBeenCalledWith(
+      expect.objectContaining({ port }),
+      expect.stringContaining('already in use'),
+    );
+    jest.restoreAllMocks();
+    await new Promise((resolve) => blocker.close(resolve));
+  });
+});
 
 describe('graceful shutdown', () => {
   it('termina los requests en curso, deja de estar listo, rechaza conexiones nuevas y cierra la base', async () => {
