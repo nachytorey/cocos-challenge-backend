@@ -25,6 +25,44 @@ function send(body: object) {
     .send(body);
 }
 
+const cancelOrder = (orderId: number) =>
+  request(app).post(`/v1/orders/${orderId}/cancellation`).send({ userId: 1 });
+
+describe('reservas de órdenes NEW (FR-014, FR-014a, FR-014b)', () => {
+  it('una LIMIT BUY pendiente reserva pesos y bloquea gastar de más; cancelarla libera la reserva', async () => {
+    // Usuario 1: 627.500 libres. La LIMIT BUY 650 × 900 = 585.000 deja 42.500 libres.
+    const limit = await send({ ...base, side: 'BUY', type: 'LIMIT', quantity: 650, price: '900' });
+    expect(limit.status).toBe(201);
+    expect(limit.body).toMatchObject({ status: 'NEW', quantity: 650 });
+    expect((await holdingsOf(ds, 1)).availableCash.toFixed(2)).toBe('42500.00');
+
+    // 100 × 925,85 = 92.585 > 42.500 libres, aunque el saldo total (753.000) alcanzaría.
+    const blocked = await send({ ...base, side: 'BUY', type: 'MARKET', quantity: 100 });
+    expect(blocked.status).toBe(201);
+    expect(blocked.body).toMatchObject({ status: 'REJECTED' });
+
+    const cancelled = await cancelOrder((limit.body as { id: number }).id);
+    expect(cancelled.status).toBe(200);
+    const retried = await send({ ...base, side: 'BUY', type: 'MARKET', quantity: 100 });
+    expect(retried.body).toMatchObject({ status: 'FILLED', quantity: 100 });
+  });
+
+  it('una LIMIT SELL pendiente reserva acciones: solo se puede vender lo libre', async () => {
+    // Usuario 1 tiene 500 del instrumento 54. La LIMIT SELL reserva 400 → libres 100.
+    const sell = { userId: 1, instrumentId: 54, currency: 'ARS', side: 'SELL' };
+    const limit = await send({ ...sell, type: 'LIMIT', quantity: 400, price: '300' });
+    expect(limit.body).toMatchObject({ status: 'NEW', quantity: 400 });
+
+    const tooMuch = await send({ ...sell, type: 'MARKET', quantity: 200 });
+    expect(tooMuch.body).toMatchObject({ status: 'REJECTED' });
+    const ok = await send({ ...sell, type: 'MARKET', quantity: 100 });
+    expect(ok.body).toMatchObject({ status: 'FILLED' });
+
+    const position = (await holdingsOf(ds, 1)).positions.get(54);
+    expect(position).toMatchObject({ quantity: 400, reservedQuantity: 400, availableQuantity: 0 });
+  });
+});
+
 describe('POST /v1/orders (test funcional del enunciado)', () => {
   it('MARKET BUY por cantidad queda FILLED al último cierre', async () => {
     const res = await send({ ...base, side: 'BUY', type: 'MARKET', quantity: 10 }).expect(201);

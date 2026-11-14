@@ -178,6 +178,61 @@ describe('OrdersService.create', () => {
   });
 });
 
+describe('las órdenes NEW reservan y condicionan la validación de las nuevas (FR-014, FR-014a)', () => {
+  const pendingBuy = (size: number, price: string): HoldingOrder => ({
+    instrumentId: 47,
+    side: 'BUY',
+    status: 'NEW',
+    size,
+    price,
+  });
+
+  it('una BUY NEW que reserva casi todo el saldo rechaza una compra aunque el saldo total alcance', async () => {
+    // Saldo 1000, reservado 900 por la BUY NEW → libres 100. Comprar 2 × 100 = 200 > 100.
+    const { service, inserted } = build({
+      close: '100.00',
+      holdingOrders: [cash(1000), pendingBuy(9, '100')],
+    });
+    const result = await service.create({ ...buy, quantity: 2 }, 'reserve-key-01');
+    expect(result.order.status).toBe('REJECTED');
+    expect(inserted[0]).toMatchObject({ status: 'REJECTED', size: 2 });
+  });
+
+  it('lo libre justo alcanza: comprar 1 × 100 con 100 libres se ejecuta', async () => {
+    const { service } = build({
+      close: '100.00',
+      holdingOrders: [cash(1000), pendingBuy(9, '100')],
+    });
+    expect((await service.create({ ...buy, quantity: 1 }, 'reserve-key-02')).order.status).toBe(
+      'FILLED',
+    );
+  });
+
+  it('una SELL NEW reserva acciones: vender más de lo libre se rechaza y lo libre se ejecuta', async () => {
+    // Tiene 10, la SELL NEW reserva 8 → libres 2.
+    const holdingOrders: HoldingOrder[] = [
+      { instrumentId: 47, side: 'BUY', status: 'FILLED', size: 10, price: '10' },
+      { instrumentId: 47, side: 'SELL', status: 'NEW', size: 8, price: '12' },
+    ];
+    const over = build({ close: '100.00', holdingOrders });
+    const exact = build({ close: '100.00', holdingOrders });
+    const sell = { ...buy, side: 'SELL' as const };
+    expect(
+      (await over.service.create({ ...sell, quantity: 3 }, 'reserve-key-03')).order.status,
+    ).toBe('REJECTED');
+    expect(
+      (await exact.service.create({ ...sell, quantity: 2 }, 'reserve-key-04')).order.status,
+    ).toBe('FILLED');
+  });
+
+  it('una orden CANCELLED ya no reserva (el repositorio solo trae FILLED y NEW)', async () => {
+    const { service } = build({ close: '100.00', holdingOrders: [cash(1000)] });
+    expect((await service.create({ ...buy, quantity: 10 }, 'reserve-key-05')).order.status).toBe(
+      'FILLED',
+    );
+  });
+});
+
 describe('OrdersService.cancel', () => {
   const pending = (status: Order['status']): Order => ({
     id: 5,
